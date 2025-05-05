@@ -17,6 +17,18 @@ object kinds {
 
 	type =>:[-X[A], +Y[A]] = GenericFun[X, Y] //right associative
 
+	/** Groups type aliases for applying `A` a number of times (`A[A[X]]`, `A[A[A[X]]]`, etc.). */
+	type Pow[A[X]] = {
+		type _2[X] = A[A[X]]
+		type _3[X] = A[A[A[X]]]
+		type _4[X] = A[A[A[A[X]]]]
+		type _5[X] = A[A[A[A[A[X]]]]]
+		type _6[X] = A[A[A[A[A[A[X]]]]]]
+		type _7[X] = A[A[A[A[A[A[A[X]]]]]]]
+		type _8[X] = A[A[A[A[A[A[A[A[X]]]]]]]]
+		type _9[X] = A[A[A[A[A[A[A[A[A[X]]]]]]]]]
+	}
+
 	trait GenericFun[-X[A], +Y[A]] extends Serializable { outer =>
 		def apply[T](x :X[T]) :Y[T]
 

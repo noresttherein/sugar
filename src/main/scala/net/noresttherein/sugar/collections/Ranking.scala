@@ -1420,7 +1420,7 @@ case object Ranking extends RankingFactory[Ranking] {
 
 
 
-private object RankingImpl extends ArrayLikeWrapper[RefArray, Ranking] {
+private object RankingImpl extends WrapperFactory[RefArray, Ranking] {
 	override def wrap[E](array :RefArray[E]) :Ranking[E] =
 		if (array.length <= SmallRankingCap) new SmallRanking(array)
 		else new IndexedRanking(IRefArray.Wrapped(array.unsafeIRefArray))

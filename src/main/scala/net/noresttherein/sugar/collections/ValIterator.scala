@@ -3,6 +3,7 @@ package net.noresttherein.sugar.collections
 import java.util.PrimitiveIterator
 
 import scala.Specializable.AllNumeric
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatShape, IntShape, LongShape, ReferenceShape, ShortShape}
 import scala.collection.{BufferedIterator, Stepper, StepperShape}
 
@@ -60,6 +61,33 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] { outer =>
 		}
 		override def toString :String = outer.toString + (if (truth) ".filter(" else ".filterNot(") + p + ")"
 	}
+
+/*
+	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+		if (len <= 0 || start >= xs.length || !hasNext)
+			0
+		else {
+			try specCopyToArray(xs.asInstanceOf[Array[E]], start, len) catch {
+				case _ :ClassCastException | _ :ArrayStoreException =>
+					var i = start
+					val end = start + math.min(len, xs.length - math.max(start, 0))
+					while (i < end && hasNext) {
+						xs(i) = next()
+						i += 1
+					}
+					i - start
+			}
+		}
+	private def specCopyToArray(xs :Array[E @uncheckedVariance], start :Int, len :Int) :Int = {
+		var i = start
+		val end = start + math.min(len, xs.length - math.max(start, 0))
+		while (i < end && hasNext) {
+			xs(i) = next()
+			i += 1
+		}
+		i - start
+	}
+*/
 
 	override def buffered :ValIterator.Buffered[E] = new ValIterator.Buffered[E] {
 		private[this] var hd :E = _

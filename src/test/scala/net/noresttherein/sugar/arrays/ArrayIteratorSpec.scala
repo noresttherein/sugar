@@ -3,12 +3,12 @@ package net.noresttherein.sugar.arrays
 import scala.collection.{ArrayOps, BufferedIterator}
 import scala.collection.immutable.ArraySeq
 import scala.collection.immutable.ArraySeq.unsafeWrapArray
-import scala.collection.mutable.{ArrayBuffer, Builder}
+import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
 import org.scalacheck.{Arbitrary, Prop, Properties, Test}
 import org.scalacheck.Prop._
-import org.scalacheck.util.{Buildable, ConsoleReporter}
+import org.scalacheck.util.ConsoleReporter
 
 import net.noresttherein.sugar.collections.IndexedIteratorFactory
 import net.noresttherein.sugar.extensions.classNameMethods
@@ -25,10 +25,10 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
 		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(128)
 
-	implicit protected def buildableSource[X :ClassTag] :Buildable[X, S[X]] = new Buildable[X, S[X]] {
-		override def builder :Builder[X, S[X]] = sourceBuilder[X]
-	}
-	protected def sourceBuilder[X :ClassTag] :Builder[X, S[X]]
+//	implicit protected def buildableSource[X :ClassTag] :Buildable[X, S[X]] = new Buildable[X, S[X]] {
+//		override def builder :Builder[X, S[X]] = sourceBuilder[X]
+//	}
+//	protected def sourceBuilder[X :ClassTag] :Builder[X, S[X]]
 
 	protected def lengthOf[X](source :S[X]) :Int
 	protected def seq[X](source :S[X]) :Seq[X]
@@ -45,8 +45,19 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 	protected def expectFrom[X](source :S[X], first :Int) :Seq[X] = expectApply(source, first, Int.MaxValue)
 	protected def contents[X](source :S[X]) :String = source.toString
 
+	protected def mod(idx :Int, len :Int) :Int =
+		if (len == 0) 0
+		else if (idx < 0) (len + idx % len) % len
+		else idx % len
+
+	protected def clip(idx :Long, length :Int) :Int =
+		if (idx < 0) 0
+		else if (idx > length) length
+		else idx.toInt
+
 
 	protected def forAllInputs(property :IteratorProperty) :Prop
+
 
 	abstract class IteratorProperty(val propName :String) {
 		def apply[X :ClassTag :Ordering :Arbitrary](source :S[X]) :Prop = forAll { (from :Int, until :Int) =>
@@ -55,36 +66,33 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 				s"$name.slice(${contents(source)}, $from, $until) == " +
 					factory.slice(source, from, until).mkString("Iterator(", ", ", ")")
 		}
-		def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iterator: => I[X]) :Prop
+		def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iterator: => I[X]) :Prop =
+			expect sameElements iterator
 
 		property(propName) = forAllInputs(this)
 	}
 
 
-	new IteratorProperty(s"$name.apply") {
+	new IteratorProperty(s"$name(source, first, length)") {
 		override def apply[X :ClassTag :Ordering :Arbitrary](source :S[X]) :Prop =
 			forAll { (first :Int, length :Int) =>
 				val expect = expectApply(source, first, length)
 				apply(expect, factory(source, first, length)) lbl
 					s"$name(${contents(source)}, $first, $length) == " +
-						factory(source, first, length).mkString("Iterator(", ", ", ")")
+						factory(source, first, length).mkString("Iterator(", ", ", ")") + "\n!= " + expect
 			}
-		override def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iterator: => I[X]) :Prop =
-			expect sameElements iterator
 	}
 	new IteratorProperty(s"$name.from") {
 		override def apply[X :ClassTag :Ordering :Arbitrary](source :S[X]) :Prop = forAll { (first :Int) =>
 			val expect = expectFrom(source, first)
 			apply(expect, factory.from(source, first)) lbl
 				s"$name.from(${contents(source)}, $first) == " +
-					factory.from(source, first).mkString("Iterator(", ", ", ")")
+					factory.from(source, first).mkString("Iterator(", ", ", ")") + "\n!= " + expect
 		}
-		override def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iterator: => I[X]) :Prop =
-			expect sameElements iterator
 	}
-	new IteratorProperty(s"$name.slice") {
-		override def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iterator: => I[X]) :Prop =
-			expect sameElements iterator
+	new IteratorProperty(s"$name.slice(source, from, until)") {
+		override def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iter: => I[X]) =
+			super.apply(expect, iter) lbl "!= " + expect
 	}
 
 
@@ -227,7 +235,7 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 abstract class ArrayIteratorProps[I[X] <: BufferedIterator[X]](name :String, factory :IndexedIteratorFactory[Array, I])
 	extends IndexedIteratorProps[Array, I](name, factory)
 {
-	protected override def sourceBuilder[A :ClassTag] :Builder[A, Array[A]] = Array.newBuilder
+//	protected override def sourceBuilder[A :ClassTag] :Builder[A, Array[A]] = Array.newBuilder
 
 	protected override def lengthOf[A](source :Array[A]) :Int = source.length
 	protected override def seq[A](source :Array[A]) :Seq[A] = ArraySeq.unsafeWrapArray(source)

@@ -1402,6 +1402,7 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 		@inline def zipWithIndex :Arr[(E, Int)] =
 			new ArrayOps(self).zipWithIndex.castFrom[Array[(Unknown, Int)], Arr[(E, Int)]]
+
 		@inline def zip[A](that :IterableOnce[A]) :Arr[(E, A)] =
 			new ArrayOps(self).zip(that).castFrom[Array[(Unknown, A)], Arr[(E, A)]]
 
@@ -1432,6 +1433,9 @@ case object ArrayLike extends IterableFactory.Delegate[ArrayLike](RefArray) {
 
 		/** Casts this array like value to the backing array. */
 		@inline def asArray :Array[_] = self
+
+		/** Clones this array, even if it's immutable, to an identical instance. */
+		@inline def cloned :Arr[E] = Array.copyOf(self, self.length).asInstanceOf[Arr[E]]
 
 		@inline def to[C1](factory :Factory[E, C1]) :C1 = self.to(factory.castParam1[Unknown])
 		@inline def toSeq :Seq[E] = self.toSeq.asInstanceOf[Seq[E]]

@@ -63,7 +63,12 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 }
 
 
-
+/**
+  * @define Coll `ArrayMutator`
+  * @define coll mutator
+  * @define Source `Array`
+  * @define source array
+  */
 @SerialVersionUID(Ver)
 object ArrayMutator extends IndexedIteratorFactory[Array, ArrayMutator] with ArrayLikeSliceWrapper[Array, ArrayMutator] {
 	protected final override def lengthOf[E](array :Array[E]) :Int = array.length

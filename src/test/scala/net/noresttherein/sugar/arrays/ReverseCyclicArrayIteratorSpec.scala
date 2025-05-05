@@ -6,11 +6,6 @@ import scala.collection.BufferedIterator
 
 
 trait ReverseCyclicIndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]] extends IndexedIteratorProps[S, I] {
-	protected def mod(idx :Int, len :Int) :Int =
-		if (len == 0) 0
-		else if (idx < 0) (len + idx % len) % len
-		else idx % len
-
 	protected override def expectSlice[X](source :S[X], from :Int, until :Int) :Seq[X] = {
 		val len = lengthOf(source)
 		val from0 = mod(from, len)

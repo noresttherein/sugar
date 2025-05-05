@@ -1,13 +1,10 @@
 package net.noresttherein.sugar.arrays
 
-import scala.annotation.unchecked.uncheckedVariance
-
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{AbstractCyclicIterator, AbstractIndexedIterator, AbstractReverseCyclicIterator, AbstractReverseIndexedIterator, ArrayIterableOnceOps, ArrayLikeSliceWrapper, CyclicIteratorFactory, IArrayLikeSlice, IndexedIterator, IndexedIteratorFactory, Mutability, ReverseCyclicIteratorFactory, ReverseIndexedIteratorFactory, ValIterator}
+import net.noresttherein.sugar.collections.{AbstractCyclicIterator, AbstractIndexedIterator, AbstractReverseCyclicIterator, AbstractReverseIndexedIterator, ArrayIterableOnceOps, ArrayLikeSliceWrapper, CyclicIteratorFactory, IArrayLikeSlice, IndexedIterator, IndexedIteratorEquals, IndexedIteratorFactory, Mutability, ReverseCyclicIteratorFactory, ReverseIndexedIteratorFactory, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
-import net.noresttherein.sugar.slang.extensions.hashCodeMethods
 import net.noresttherein.sugar.util.SingletonSerializationProxy
 
 
@@ -15,9 +12,10 @@ import net.noresttherein.sugar.util.SingletonSerializationProxy
 
 
 
-private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
-	extends ValIterator.Buffered[T] with ArrayIterableOnceOps[T, Iterator, Iterator[T]] with IndexedIterator[T]
+private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T] //todo: manually specialize for AnyRef
+	extends ValIterator.Buffered[T] with ArrayIterableOnceOps[T, Iterator, Iterator[T]] with IndexedIteratorEquals[T]
 {
+	protected final override def source :AnyRef = unsafeArray
 	private[sugar] final override def startIndex  :Int = index
 	protected final override def underlyingSize :Int = unsafeArray.length
 
@@ -53,14 +51,6 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
 		else if (isImmutable) IArrayLikeSlice.slice(array.asInstanceOf[IArrayLike[T]], index, limit)
 		else IArrayLike.Wrapped(array.slice(index, limit).asInstanceOf[IArrayLike[T]])
 
-	override def equals(that :Any) :Boolean = that match {
-		case self  :AnyRef if this eq self => true
-		case other :ArrayIteratorOps[_] if other.canEqual(this) =>
-			(unsafeArray eq other.unsafeArray) && index == other.index && limit == other.limit
-		case _ => false
-	}
-	def canEqual(that :Any) :Boolean = that.isInstanceOf[ArrayIteratorOps[_]]
-	override def hashCode :Int = ArrayLike.Slice(array, index, limit).hashCode
 }
 
 
@@ -151,7 +141,7 @@ private class RefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]]
   * @param first    the index in the array of the first/next element to return.
   * @param `last++` the index in the array delimiting the iterator, that is pointing after the last element
   *                 the iterator should return.
-  */ //consider: Pow2ArrayIterator using bit masking instead of modulo.
+  */
 @SerialVersionUID(Ver)
 private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[sugar]
 	                                     (array :Array[T], first :Int, `last++` :Int,
@@ -195,7 +185,9 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
 		copied
 	}
 
-	override def toString :String = "iterator" + "|" + knownSize + "|(" + errorString(array) + ")@" + index
+	override def canEqual(that :Any) :Boolean = that.isInstanceOf[ArrayIterator[_]]
+	override def clone = new ArrayIterator(array, first, `last++`, isImmutable)
+	override def toString :String = errorString(array) + ".iterator@" + index + "|" + knownSize + "|"
 }
 
 
@@ -275,11 +267,12 @@ private class ReverseRefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]] priva
 @SerialVersionUID(Ver)
 private[sugar] sealed class ReverseArrayIterator[@specialized(MultiValue) +T] private[sugar]
 	                        (array :Array[T], end :Int, first :Int)
-	extends AbstractReverseIndexedIterator[T](end, first) with ValIterator.Buffered[T] with Serializable
+	extends AbstractReverseIndexedIterator[T](end, first) with ValIterator.Buffered[T]
+	   with IndexedIteratorEquals[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, -1, array.length - 1)
 
-	private def unsafeArray :Array[_] = array
+	protected final override def source :Array[_] = array
 
 	override def head :T =
 		if (hasNext) array(index)
@@ -313,30 +306,10 @@ private[sugar] sealed class ReverseArrayIterator[@specialized(MultiValue) +T] pr
 			)
 		else {
 			val copied = math.min(size, math.min(len, xsLength - start))
-			val end = start + copied
-			try
-				specCopyToArray(xs.asInstanceOf[Array[T]], start, end)
-			catch {
-				case _ :ClassCastException | _ :ArrayStoreException =>
-					var i = start
-					var j = index
-					while (i < end) {
-						xs(i) = array(j)
-						j -= 1
-						i += 1
-					}
-			}
-			index += copied
+			val idx = index
+			ArrayLikeSpecOps.reverseCopy(array, idx - copied + 1, xs, start, copied)
+			index = idx - copied
 			copied
-		}
-	}
-	private def specCopyToArray(xs :Array[T @uncheckedVariance], from :Int, until :Int) :Unit = {
-		var i = from
-		var j = index
-		while (i < until) {
-			xs(i) = array(j)
-			j -= 1
-			i += 1
 		}
 	}
 
@@ -345,8 +318,7 @@ private[sugar] sealed class ReverseArrayIterator[@specialized(MultiValue) +T] pr
 
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[ReverseArrayIterator[_]]
 	override def clone = new ReverseArrayIterator(array, end, first)
-
-	override def toString :String = "reverseIterator|" + knownSize + "|(" + errorString(array) + ")@" + index
+	override def toString :String = errorString(array) + ".reverseIterator@" + index + "|" + knownSize + "|"
 }
 
 
@@ -359,7 +331,7 @@ private[sugar] sealed class ReverseArrayIterator[@specialized(MultiValue) +T] pr
   * @tparam I The type of the created iterator, `I[X] <: Iterator[X]`
   * @define Coll `CyclicArrayIterator`
   * @define coll cyclic iterator
-  */ //todo: make it package private and move the documentation to its values.
+  */ //consider: allowing to iterate multiple times over the array, treating the index modulo.
 private abstract class CyclicArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] protected
                        (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
 	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with CyclicIteratorFactory[A, I]
@@ -418,15 +390,16 @@ private class CyclicRefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]] privat
 /** An iterator advancing over an array, potentially wrapping over the end of the array back to the beginning.
   * @param first the index in the array of the first/next element to return.
   * @param size  the remaining number of elements to iterate over.
-  */ //todo: implement CyclicIndexedIterator
+  */
 @SerialVersionUID(Ver)
 private[sugar] sealed class CyclicArrayIterator[@specialized(MultiValue) +T] private[sugar]
 	                        (array :Array[T], first :Int, size :Int)
-	extends AbstractCyclicIterator[T](first, size, array.length) with ValIterator.Buffered[T] with Serializable
+	extends AbstractCyclicIterator[T](first, size, array.length) with ValIterator.Buffered[T]
+	   with IndexedIteratorEquals[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, 0, array.length)
 
-	private def unsafeArray :Array[_] = array
+	protected final override def source :Array[_] = array
 
 	override def head :T =
 		if (remaining > 0) array(index)
@@ -471,6 +444,8 @@ private[sugar] sealed class CyclicArrayIterator[@specialized(MultiValue) +T] pri
 
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[CyclicArrayIterator[_]]
 	override def clone = new CyclicArrayIterator(array, index, remaining)
+
+	override def toString :String = errorString(array) + ".cyclicIterator@" + index + "|" + knownSize + "|"
 }
 
 
@@ -551,11 +526,11 @@ private class ReverseCyclicRefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]]
 private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(MultiValue) +T] private[sugar]
 	                        (array :Array[T], first :Int, size :Int)
 	extends AbstractReverseCyclicIterator[T](first, size, 0, array.length)
-	   with ValIterator.Buffered[T] with Serializable
+	   with ValIterator.Buffered[T] with IndexedIteratorEquals[T] with Serializable
 {
 	def this(array :Array[T]) = this(array, array.length - 1, array.length)
 
-	private def unsafeArray :Array[_] = array
+	protected final override def source :Array[_] = array
 
 	override def head :T =
 		if (remaining > 0) array(index)
@@ -588,35 +563,23 @@ private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(MultiValue) 
 
 	final override def copyToArray[B >: T](xs :Array[B], start :Int, len :Int) :Int = {
 		val xsLength = xs.length
-		if (len <= 0 | start >= xsLength/* | xsLength == 0*/ | remaining <= 0)
+		val size     = remaining
+		if (len <= 0 | start >= xsLength/* | xsLength == 0*/ | size <= 0)
 			0
 		else if (start < 0)
 			outOfBounds_!(
 				errorString(this) + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
 			)
 		else {
-			val size   = remaining
 			val copied = math.min(size, math.min(len, xsLength - start))
-			val until  = start + copied
-			try
-				specCopyToArray(xs.asInstanceOf[Array[T]], start, until)
-			catch {
-				case _ :ClassCastException | _ :ArrayStoreException =>
-					var i   = start
-					var idx = index
-					var end = math.max(-1, idx - copied)
-					while (i < until) {
-						while (idx > end) {
-							xs(i) = array(idx)
-							i   += 1
-							idx -= 1
-						}
-						if (i < until) {
-							idx = array.length - 1
-							end = array.length - 1 - (until - i)
-						}
-					}
-					index = idx
+			val idx    = index
+			if (idx >= copied - 1) {
+				ArrayLike.reverseCopy(array, idx - copied + 1, xs, start, copied)
+				index = idx - copied
+			} else {
+				ArrayLike.reverseCopy(array, 0, xs, start, idx + 1)
+				ArrayLike.reverseCopy(array, array.length - copied + idx + 1, xs, start + idx + 1, copied - idx - 1)
+				index = array.length - copied + idx
 			}
 			remaining = size - copied
 			copied
@@ -628,4 +591,6 @@ private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(MultiValue) 
 
 	override def canEqual(that :Any) :Boolean = that.isInstanceOf[ReverseCyclicArrayIterator[_]]
 	override def clone = new ReverseCyclicArrayIterator(array, index, remaining)
+
+	override def toString :String = errorString(array) + ".reverseCyclicIterator@" + index + "|" + knownSize + "|"
 }

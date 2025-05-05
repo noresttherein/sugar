@@ -4,17 +4,17 @@ import java.lang.{Math => math}
 
 import scala.Int.{MaxValue, MinValue}
 import scala.annotation.tailrec
-import scala.collection.{AbstractIterator, EvidenceIterableFactory, EvidenceIterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedSeqFactory, mutable}
+import scala.collection.{EvidenceIterableFactory, EvidenceIterableFactoryDefaults, SeqFactory, Stepper, StepperShape, StrictOptimizedClassTagSeqFactory, StrictOptimizedSeqFactory, mutable}
 import scala.collection.Stepper.EfficientSplit
 import scala.collection.generic.DefaultSerializable
 import scala.collection.mutable.{AbstractBuffer, Builder, GrowableBuilder, IndexedBuffer}
 import scala.reflect.ClassTag
 import scala.util.Sorting
 
-import net.noresttherein.sugar.JavaTypes.JIterator
-import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, MutableArrayExtension, ReverseCyclicArrayIterator, arraycopy}
+import net.noresttherein.sugar.arrays.{ArrayCompanionExtension, ArrayFactory, ArrayLike, ArrayLikeSpecOps, CyclicArrayIterator, IArray, IRefArray, MutableArrayExtension, RefArray, ReverseCyclicArrayIterator, arraycopy}
 import net.noresttherein.sugar.arrays.extensions.{ArrayCompanionExtension, ArrayExtension}
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
+import net.noresttherein.sugar.collections.Iterators.StrictIterator
 import net.noresttherein.sugar.collections.MatrixBuffer.{Dim1Bits, Dim1Mask, MatrixDim2BufferIterator, MaxDim2, MaxSize1, MaxSize2, MinSize1, MinSize2, NewSize1, NewSize2, ReverseDim2MatrixBufferIterator, SpacerValues, dim1, dim2}
 import net.noresttherein.sugar.collections.extensions.{IterableExtension, IterableOnceExtension, IteratorExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.errorString
@@ -2788,79 +2788,91 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 
 
 	private class MatrixDim2BufferIterator[+E](data2 :Array[Array[E]],
-	                                           private[this] var idx :Int, private[this] var remaining :Int)
-		extends IndexedIterator[E]
+	                                           private[this] var idx :Int, private[this] var count :Int)
+		extends AbstractSugaredIterator[E] with StrictIterator[E] with CountdownIterator[E]
 	{
 		private[this] val mask = (data2.length << Dim1Bits) - 1
 		protected override def underlyingSize :Int = ??!
-		protected override def index :Int = 0
-		protected override def index_=(value :Int) :Unit = { remaining -= value; idx = idx + value & mask }
-		protected override def limit :Int = remaining
-		protected override def limit_=(value :Int) :Unit = remaining = value
-
-		override def hasNext :Boolean = remaining > 0
+		protected override def index :Int = idx
+		protected override def index_=(value :Int) :Unit = idx = value & mask
+//		protected override def limit :Int = count
+//		protected override def limit_=(value :Int) :Unit = count = value
+		protected override def remaining :Int = count
+		protected override def remaining_=(value :Int) :Unit = count = value
+		protected override def advance() :Int = {
+			val i = idx
+			count -= 1
+			idx = i + 1 & mask
+			i
+		}
+		override def hasNext :Boolean = count > 0
 		override def head :E = data2(dim2(idx))(dim1(idx))
 		override def next() :E = {
-			if (remaining <= 0)
+			if (count <= 0)
 				noSuch_!("Iterator.empty")
 			val hd = data2(dim2(idx))(dim1(idx))
 			idx = idx + 1 & mask
-			remaining -= 1
+			count -= 1
 			hd
 		}
 
 		override def foldLeft[A](z :A)(op :(A, E) => A) :A = {
-			val res = MatrixBuffer.foldLeft2(data2, idx, remaining)(z)(op)
-			remaining = 0
+			val res = MatrixBuffer.foldLeft2(data2, idx, count)(z)(op)
+			count = 0
 			res
 		}
 
 		override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = {
 			val xsLength = xs.length
-			if (len <= 0 | xsLength == 0 | start >= xsLength || remaining <= 0)
+			if (len <= 0 | xsLength == 0 | start >= xsLength || count <= 0)
 				0
 			else if (start < 0)
 				outOfBounds_!(start, xsLength)
 			else {
-				val copied = math.min(remaining, math.min(len, xsLength - start))
+				val copied = math.min(count, math.min(len, xsLength - start))
 				MatrixBuffer.copyToArray2(data2, idx, xs, start, copied)
-				idx       += copied
-				remaining -= copied
+				idx   += copied
+				count -= copied
 				copied
 			}
 		}
-		override def toString = className + "|" + knownSize + "|(@" + index + ")"
+		override def toString = className + "|" + knownSize + "|@" + index
 	}
 
 	private class ReverseDim2MatrixBufferIterator[+E](data2 :Array[Array[E]],
-	                                                  private[this] var idx :Int, private[this] var remaining :Int)
-		extends AbstractIterator[E] with ReverseIndexedIterator[E] //todo: replace with ReverseCyclicMatrixIterator
+	                                                  private[this] var idx :Int, private[this] var count :Int)
+		extends AbstractSugaredIterator[E] with ReverseCountdownIterator[E]
 	{
 		private[this] val mask = (data2.length << Dim1Bits) - 1
 		protected override def underlyingSize :Int = ??!
 		protected override def index :Int = idx
-		protected override def index_=(value :Int) :Unit = { remaining -= idx - value; idx = value & mask }
-		protected override def limit :Int = idx - remaining
-		protected override def limit_=(value :Int) :Unit = remaining = idx - value
+		protected override def index_=(value :Int) :Unit = idx = value & mask
+		protected override def remaining :Int = count
+		protected override def remaining_=(value :Int) :Unit = count = value
+		protected override def advance() :Int = {
+			val i = idx
+			idx = i - 1 & mask
+			count -= 1
+			i
+		}
 
-		override def knownSize = remaining
-		override def hasNext :Boolean = remaining > 0
+		override def hasNext :Boolean = count > 0
 		override def head :E = data2(dim2(idx))(dim1(idx))
 		override def next() :E = {
-			if (remaining <= 0)
+			if (count <= 0)
 				noSuch_!("Iterator.empty")
-			remaining -= 1
+			count -= 1
 			val i = idx
 			idx   = idx - 1 & mask
 			data2(dim2(i))(dim1(i))
 		}
 		override def foldLeft[A](z :A)(op :(A, E) => A) :A = {
-			idx = idx - remaining
-			val res = MatrixBuffer.foldRight2(data2, idx + 1, remaining)(z)((e, a) => op(a, e))
-			remaining = 0
+			idx = idx - count
+			val res = MatrixBuffer.foldRight2(data2, idx + 1, count)(z)((e, a) => op(a, e))
+			count = 0
 			res
 		}
-		override def toString = className + "|" + knownSize + "|(@" + index + ")"
+		override def toString = className + "|" + knownSize + "|@" + index
 	}
 }
 

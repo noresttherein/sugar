@@ -5,11 +5,6 @@ import scala.collection.BufferedIterator
 
 
 trait CyclicIndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]] extends IndexedIteratorProps[S, I] {
-	protected def mod(idx :Int, len :Int) :Int =
-		if (len == 0) 0
-		else if (idx < 0) (len + idx % len) % len
-		else idx % len
-
 	protected override def expectSlice[X](source :S[X], from :Int, until :Int) :Seq[X] = {
 		val len    = lengthOf(source)
 		val from0  = mod(from, len)
@@ -27,9 +22,9 @@ trait CyclicIndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]] extends Inde
 	}
 
 	protected override def expectApply[X](source :S[X], first :Int, length :Int) :Seq[X] = {
-		val len = lengthOf(source)
+		val len  = lengthOf(source)
 		val size = math.max(0, math.min(len, length))
-		val rem = mod(first, len)
+		val rem  = mod(first, len)
 		val suffix = iterator(source).drop(rem).take(length)
 		(if (len - rem >= size) suffix else suffix ++ iterator(source).take(size - (len - rem))).toSeq
 	}

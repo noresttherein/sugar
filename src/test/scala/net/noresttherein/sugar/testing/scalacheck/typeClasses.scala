@@ -3,9 +3,11 @@ package net.noresttherein.sugar.testing.scalacheck
 import scala.annotation.nowarn
 import scala.collection.View
 import scala.collection.immutable.ArraySeq
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{ArrayBuffer, Builder}
 import scala.reflect.ClassTag
 
+import net.noresttherein.sugar.arrays.{ArrayLike, IArray, IArrayLike, IRefArray, MutableArray, RefArray, RefArrayLike}
+import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.{IRefArraySlice, RefArraySlice}
 import net.noresttherein.sugar.testing.scalacheck.extensions.GenToGenDisjunction
 import org.scalacheck.util.Buildable
@@ -40,6 +42,32 @@ object typeClasses {
 	implicit val arbitraryAny :Arbitrary[Any] = Arbitrary {
 		Gen.alphaStr || Arbitrary.arbitrary[Int] || Arbitrary.arbitrary[Long] || Arbitrary.arbitrary[Double]
 	}
+
+
+	implicit def arbitraryArrayLike[T :Arbitrary :ClassTag] :Arbitrary[ArrayLike[T]] =
+		arbitraryIArrayLike[T].upcastParam[ArrayLike[T]]
+
+	implicit def arbitraryIArrayLike[T :Arbitrary :ClassTag] :Arbitrary[IArrayLike[T]] = Arbitrary(
+		Gen.oneOf(arbitraryIArray[T].arbitrary, arbitraryIRefArray[T].arbitrary)
+	)
+	implicit def arbitraryIArray[T :Arbitrary :ClassTag] :Arbitrary[IArray[T]] = Arbitrary(
+		Arbitrary.arbitrary[Array[T]].castParam[IArray[T]]
+	)
+	implicit def arbitraryIRefArray[T :Arbitrary] :Arbitrary[IRefArray[T]] = Arbitrary(
+		Arbitrary.arbitrary[ArrayBuffer[T]].map(_ to IRefArray)
+	)
+	implicit def arbitraryRefArray[T :Arbitrary] :Arbitrary[RefArray[T]] = Arbitrary(
+		Arbitrary.arbitrary[ArrayBuffer[T]].map(_ to RefArray)
+	)
+	implicit def arbitraryRefArrayLike[T :Arbitrary] :Arbitrary[RefArrayLike[T]] =
+		arbitraryRefArray[T].upcastParam[RefArrayLike[T]]
+
+	implicit def arbitraryMutableArray[T :Arbitrary :ClassTag] :Arbitrary[MutableArray[T]] = Arbitrary(
+		Gen.oneOf(
+			Arbitrary.arbitrary[Array[T]].upcastParam[MutableArray[T]],
+			arbitraryRefArray[T].arbitrary.upcastParam[MutableArray[T]])
+	)
+
 
 	implicit def buildableRefArraySliceSeq[T] :Buildable[T, RefArraySlice[T]] = new Buildable[T, RefArraySlice[T]] {
 		override def builder :Builder[T, RefArraySlice[T]] =

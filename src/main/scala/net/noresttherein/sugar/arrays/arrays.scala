@@ -6,8 +6,42 @@ import scala.annotation.unchecked.uncheckedVariance
 import net.noresttherein.sugar.arrays.ReverseCyclicMatrixIterator
 import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
 import net.noresttherein.sugar.collections.Mutability.{Immutable, Mutable, Unspecified}
-import net.noresttherein.sugar.collections.{ArrayLikeSliceFactory, IndexedIteratorFactory, Mutability, ValIterator}
+import net.noresttherein.sugar.collections.{ArrayLikeSliceFactory, IndexedIteratorFactory, ValIterator}
 import net.noresttherein.sugar.vars.Maybe
+/* Package dependencies:
+ *   - optional/helper:
+ *     1. casting
+ *     1. collections.util.{elementsToCopy, errorString}
+ *     1. concurrent.Fences
+ *     1. exceptions - throwing methods
+ *     1. reflect.{ArrayClass, classes}
+ *     1. reflect.Specialized.NotUnit/other group constants
+ *     1. reflect.extensions.ClassExtension
+ *     1. slang.extensions.hashCodeMethods
+ *   - useful:
+ *     1.
+ *   - hard:
+ *     1. collections.{ArrayIterableOnce, ArraySlicingOps, IArrayLikeSlice}
+ *     1. collections.{ArrayLikeSliceWrapper}
+ *     1. collections.{BufferFullException, Builders, ViewBuffer}
+ *     1. collections.{IndexedIterator, ReverseIndexedIterator}
+ *     1. collections.extensions.IterableOnceExtension
+ *   - mandatory:
+ *     1. vars.Maybe
+ *     1. collections.ValIterator
+ *
+ *   1. ArrayLikeWrapper and ArrayLikeSliceWrapper, ArrayLikeSliceFactory
+ *   1. ArrayLikeSlice and subclasses
+ *   1. SugaredIterableOps
+ *   1. Builders (manually specialized Builder traits) in ArrayFactory
+ *   1. ViewBuffer in ArrayFactory (easy to drop, like RelayArray)
+ *   1. MatrixBuffer
+ *   1. RelayArrayFactory
+ *   1. IndexedIterator, IndexedReverseIterator, ValIterator (ArrayIterator), Mutator
+ *   1. ArrayStepper
+ *   1. IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, StepperCompanionExtension
+ *   1. ElementIndex
+ */
 
 
 
@@ -28,21 +62,6 @@ import net.noresttherein.sugar.vars.Maybe
   * Note that the types can be often cast into one another without causing a `ClassCastException`,
   * and thus the immutability is guaranteed only under the assumption that no such casting is done by the application.
   */
-/* Dependencies on collections package to drop:
- *   1. util.errorString
- *   1. ArrayIterableOnce
- *   1. ArrayLikeWrapper and ArrayLikeSliceWrapper, ArrayLikeSliceFactory
- *   1. ArrayLikeSlice and subclasses
- *   1. SugaredIterableOps
- *   1. Builders (manually specialized Builder traits) in ArrayFactory
- *   1. ViewBuffer in ArrayFactory (easy to drop, like RelayArray)
- *   1. MatrixBuffer
- *   1. RelayArrayFactory
- *   1. IndexedIterator, IndexedReverseIterator, ValIterator (ArrayIterator), Mutator
- *   1. ArrayStepper
- *   1. IterableOnceExtension, IteratorExtension, IteratorCompanionExtension, StepperCompanionExtension
- *   1. ElementIndex
- */
 package object arrays extends extensions {
 	private[arrays] final val Ver = 1L
 	
@@ -154,7 +173,7 @@ package object arrays extends extensions {
 	  * @see [[net.noresttherein.sugar.arrays.RefArrayLike RefArrayLike]]
 	  * @see [[net.noresttherein.sugar.arrays.ArrayLike ArrayLike]]
 	  * @see [[net.noresttherein.sugar.arrays.MutableArray MutableArray]]
-	  */
+	  */ //todo: rename to BoxArray
 	type RefArray[E] >: Null <: RefArrayLike[E] with MutableArray[E] //todo: rename it to BoxArray/AnyArray/ErasedArray
 
 	/** An immutable array with elements of type `E`, represented in runtime as `Array[Any]` (that is, `Object[]`).
@@ -366,18 +385,20 @@ package object arrays extends extensions {
 
 
 
-	private[sugar] val MatrixIterator        :GenericMatrixIteratorFactory[Array, ValIterator.Buffered] =
-		MatrixIteratorFactory
+//	private[sugar] val ArrayLike2Iterator :ArrayLike2IteratorFactory[ArrayLike, ValIterator.Buffered] =
+//		new Array2IteratorFactory[ArrayLike]("ArrayLike2Iterator", ArrayLike2Iterator)
 
-	private[sugar] val ReverseMatrixIterator :GenericMatrixIteratorFactory[Array, ValIterator.Buffered] =
-		ReverseMatrixIteratorFactory
+	private[sugar] val MatrixIterator :AbstractMatrixIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new MatrixIteratorFactory[ArrayLike]("MatrixIterator", MatrixIterator)
 
-	private[sugar] val CyclicMatrixIterator  :GenericMatrixIteratorFactory[Array, ValIterator.Buffered] =
-		CyclicMatrixIteratorFactory
+	private[sugar] val ReverseMatrixIterator :AbstractMatrixIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new ReverseMatrixIteratorFactory[ArrayLike]("ReverseMatrixIterator", MatrixIterator)
 
-	private[sugar] val ReverseCyclicMatrixIterator :GenericMatrixIteratorFactory[Array, ValIterator.Buffered] =
-		ReverseCyclicMatrixIteratorFactory
+	private[sugar] val CyclicMatrixIterator  :AbstractMatrixIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new CyclicMatrixIteratorFactory[ArrayLike]("CyclicMatrixIterator", CyclicMatrixIterator)
 
+	private[sugar] val ReverseCyclicMatrixIterator :AbstractMatrixIteratorFactory[ArrayLike, ValIterator.Buffered] =
+		new ReverseCyclicMatrixIteratorFactory[ArrayLike]("ReverseCyclicMatrixIterator", ReverseCyclicMatrixIterator)
 
 
 	private[arrays] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =

@@ -795,7 +795,7 @@ private final class RelayArray2[@specialized(ElemTypes) +E] private[collections]
   * Base trait for [[net.noresttherein.sugar.collections.RelayArrayPlus RelayArrayPlus]]
   * and [[net.noresttherein.sugar.collections.RelayArrayRange RelayArrayRange]].
   */ //todo: rename to SubRelayArray or RelayArraySlice; problem with 'Slice' is slice method from Iterable
-private sealed trait ProperRelayArray[@specialized(ElemTypes) +E]
+private sealed trait ProperRelayArray[@specialized(ElemTypes) +E] //todo: manually specialize for Array[AnyRef]
 	extends RelayArrayPrivates[E] with ApplyPreferredSeqOps[E, RelayArray, RelayArray[E]]
 	   with ArraySliceSeqOps[E, RelayArray, RelayArray[E]]
 {  //todo: review and try to use Array.copyOf rather than separate creation and copying of arrays.
@@ -1504,8 +1504,8 @@ private final class RelayArrayRange[@specialized(ElemTypes) +E] private[collecti
   * `Array[`[[Any]]`]` if needed.
   * @define Coll `RelayArray`
   * @define coll relay array
-  * @define Arr `IArray`
-  * @define arr immutable array
+  * @define Source `IArray`
+  * @define source immutable array
   */
 @SerialVersionUID(Ver)
 case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
@@ -1793,6 +1793,8 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 	  * (defined by a `ClassTag` type class).
 	  * @define Coll `RelayArray`
 	  * @define coll relay array
+	  * @define Source `IArray`
+	  * @define source immutable array
 	  */
 	@SerialVersionUID(Ver)
 	object specific extends ClassTagArrayLikeSliceSeqFactory[IArray, RelayArray] {
@@ -1838,6 +1840,10 @@ case object RelayArray extends ArrayLikeSliceFactory[IArrayLike, RelayArray] {
 
 	/** A [[scala.collection.SeqFactory SeqFactory]] building
 	  * [[net.noresttherein.sugar.collections.RelayArray RelayArray]]s always backed by `Array[Any]`.
+	  * @define Coll `RelayArray`
+	  * @define coll relay array
+	  * @define Source `IRefArray`
+	  * @define source immutable boxed array
 	  */
 	@SerialVersionUID(Ver)
 	object untagged extends ArrayLikeSliceFactory[IRefArray, RelayArray] {
