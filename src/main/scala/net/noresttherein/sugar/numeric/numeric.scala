@@ -51,7 +51,14 @@ package object numeric { //todo: copy static methods of java.lang.Integer and th
 	@inline def clip(x :Long, max :Long) :Long = math.max(0L, math.min(max, x))
 	@inline def clip(x :Float, max :Float) :Float = math.max(0.0f, math.min(max, x))
 	@inline def clip(x :Double, max :Double) :Double = math.max(0.0, math.min(max, x))
-	
+
+	@inline def clip(x :Byte, min :Int, max :Byte) :Byte = math.max(min, math.min(max, x)).toByte
+	@inline def clip(x :Short, min :Short, max :Short) :Short = math.max(min, math.min(max, x)).toShort
+	@inline def clip(x :Int, min :Int, max :Int) :Int = math.max(min, math.min(max, x))
+	@inline def clip(x :Long, min :Long, max :Long) :Long = math.max(min, math.min(max, x))
+	@inline def clip(x :Float, min :Float, max :Float) :Float = math.max(min, math.min(max, x))
+	@inline def clip(x :Double, min :Double, max :Double) :Double = math.max(min, math.min(max, x))
+
 	implicit val globalRandom      :Random = new Random(new java.util.Random())
 
 	implicit val threadLocalRandom :Random = new Random(

@@ -111,18 +111,20 @@ class UShort private[numeric](override val toShort: Short)
 
 	@inline def min(other: UShort): UShort = new UShort(jl.Math.min(toShort & 0xffff, other.toShort & 0xffff).toShort)
 	@inline def max(other: UShort): UShort = new UShort(jl.Math.max(toShort & 0xffff, other.toShort & 0xffff).toShort)
+	@inline def clip(min: UShort, max: UShort): UShort =
+		new UShort(jl.Math.max(min.toShort & 0xffff, jl.Math.min(max.toShort & 0xffff, toShort & 0xffff)).toShort)
 
 	/** Returns `this max other`. */
-	@inline def atLeast(other :UShort) :UShort = new UShort(jl.Math.max(toShort & 0xffff, other.toShort & 0xffff).toShort)
+	@inline def atLeast(other: UShort): UShort = new UShort(jl.Math.max(toShort & 0xffff, other.toShort & 0xffff).toShort)
 
 	/** Returns `this min other`. */
-	@inline def atMost(other :UShort) :UShort = new UShort(jl.Math.min(toShort & 0xffff, other.toShort & 0xffff).toShort)
+	@inline def atMost(other: UShort): UShort = new UShort(jl.Math.min(toShort & 0xffff, other.toShort & 0xffff).toShort)
 
 	/** Returns this `UShort`, or `0` if the condition is false. */
-	@inline def orZeroIf(condition :Boolean) :UShort = if (condition) new UShort(0) else this
+	@inline def orZeroIf(condition: Boolean): UShort = if (condition) new UShort(0) else this
 
 	/** Returns this `UInt`, or `0` if it does not satisfy the predicate. */
-	@inline def orZeroIf(condition :UShort => Boolean) :UShort = if (condition(this)) new UShort(0) else this
+	@inline def orZeroIf(condition: UShort => Boolean): UShort = if (condition(this)) new UShort(0) else this
 
 	type ResultWithoutStep = NumericRange[UShort]
 	@inline def to(end: UShort): NumericRange.Inclusive[UShort] =
@@ -138,13 +140,13 @@ class UShort private[numeric](override val toShort: Short)
 	@inline def in(range: NumericRange[UShort]): Boolean = range.containsTyped(this)
 
 
-//	private def underflow(method :String) :Nothing =
+//	private def underflow(method: String): Nothing =
 //		throw SugaredArithmeticException("Ops underflow: " + this + "." + method + ".")
 
-	private def outOfRange(typeName :String) :Nothing =
+	private def outOfRange(typeName: String): Nothing =
 		throw SugaredArithmeticException("Value " + this + " is out of " + typeName + " range.")
 
-//	@inline private def testRange(max :Int, typeName :String) :Unit =
+//	@inline private def testRange(max: Int, typeName: String): Unit =
 //		if (toInt + MinValue > max + MinValue)
 //			outOfRange(typeName)
 }
@@ -209,16 +211,16 @@ object UShort extends CompanionObject[UShort] with Rank1UShorts {
 
 
 	//todo: in Scala3 create conversions from non negative Int literals
-	@inline implicit def UByteToUShort(number :UByte) :UShort = new UShort((number.toByte & 0xff).toShort)
+	@inline implicit def UByteToUShort(number: UByte): UShort = new UShort((number.toByte & 0xff).toShort)
 
 	@inline implicit def UShortUnsignedOps(self: UShort): UShortUnsignedOps = new UShortUnsignedOps(self.toShort)
 	@inline implicit def UShortSignedOps(self: UShort): UShortSignedOps = new UShortSignedOps(self.toShort)
 
 	class UShortUnsignedOps private[UShort](private val toShort: Int) extends AnyVal {
-		@inline def +(x :UByte):   UShort = new UShort((toShort + (x.toByte & 0xff)).toShort)
-		@inline def +(x :UShort):  UShort = new UShort((toShort + x.toShort).toShort)
-		@inline def +(x :UInt):    UInt = new UInt((toShort & 0xffff) + x.toInt)
-		@inline def +(x :ULong):   ULong = new ULong((toShort & 0xffffL) + x.toLong)
+		@inline def +(x: UByte):   UShort = new UShort((toShort + (x.toByte & 0xff)).toShort)
+		@inline def +(x: UShort):  UShort = new UShort((toShort + x.toShort).toShort)
+		@inline def +(x: UInt):    UInt = new UInt((toShort & 0xffff) + x.toInt)
+		@inline def +(x: ULong):   ULong = new ULong((toShort & 0xffffL) + x.toLong)
 		@inline def -(x: UByte):   UShort = new UShort((toShort - (x.toByte & 0xff)).toShort)
 		@inline def -(x: UShort):  UShort = new UShort((toShort - x.toShort).toShort)
 		@inline def -(x: UInt):    UInt = new UInt((toShort & 0xffff) - x.toInt)
@@ -241,28 +243,28 @@ object UShort extends CompanionObject[UShort] with Rank1UShorts {
 		@inline def **(n: UInt):   UInt = new UInt((toShort & 0xffff).pow(n.toInt))
 
 		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
-		@inline def /%(x :UByte): (UShort, UShort) = {
+		@inline def /%(x: UByte): (UShort, UShort) = {
 			val q = (toShort & 0xffff) / (x.toByte & 0xff)
 			val r = (toShort & 0xffff) - q * (x.toByte & 0xff)
 			(new UShort(q.toShort), new UShort(r.toShort))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
-		@inline def /%(x :UShort): (UShort, UShort) = {
+		@inline def /%(x: UShort): (UShort, UShort) = {
 			val q = (toShort & 0xffff) / (x.toShort & 0xffff)
 			val r = (toShort & 0xffff) - q * (x.toShort & 0xffff)
 			(new UShort(q.toShort), new UShort(r.toShort))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
-		@inline def /%(x :UInt): (UInt, UInt) = {
+		@inline def /%(x: UInt): (UInt, UInt) = {
 			val q = (toShort & 0xffffL) / (x.toInt & 0xffffffffL)
 			val r = (toShort & 0xffffL) - q * (x.toInt & 0xffffffffL)
 			(new UInt(q.toInt), new UInt(r.toInt))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UShort` by the argument. */
-		@inline def /%(x :ULong): (ULong, ULong) = {
+		@inline def /%(x: ULong): (ULong, ULong) = {
 			val q = divideUnsigned((toShort & 0xffffL), x.toLong)
 			val r = (toShort & 0xffffL) - q * x.toLong
 			(new ULong(q), new ULong(r))
@@ -283,14 +285,14 @@ object UShort extends CompanionObject[UShort] with Rank1UShorts {
 		@inline def %(x: Double): Double = (toShort & 0xffffL) % x
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :Int): (Int, Int) = {
+		@inline def /%(x: Int): (Int, Int) = {
 			val q = (toShort & 0xffff) / x
 			val r = (toShort & 0xffff) - q * x
 			(q, r)
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :Long): (Long, Long) = {
+		@inline def /%(x: Long): (Long, Long) = {
 			val q = (toShort & 0xffffL) / x
 			val r = (toShort & 0xffffL) - q * x
 			(q, r)

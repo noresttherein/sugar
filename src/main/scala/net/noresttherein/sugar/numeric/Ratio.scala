@@ -2,12 +2,11 @@ package net.noresttherein.sugar.numeric
 
 import java.math.{BigInteger, MathContext}
 
-import net.noresttherein.sugar.numeric.Ratio.{GCD, naturalGCD}
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
-import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.exceptions.{illegal_!, SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
+import net.noresttherein.sugar.numeric.Ratio.{GCD, naturalGCD, Zero}
 import net.noresttherein.sugar.typist.CompanionObject
 
 
@@ -133,6 +132,8 @@ final class Ratio private[numeric](n :Long, d :Long) extends Number {
 
 	@inline def min(other :Ratio) :Ratio = if (this <= other) this else other
 	@inline def max(other :Ratio) :Ratio = if (this < other) other else this
+	@inline def clip(max :Ratio) :Ratio = if (this < Zero) Zero else if (this > max) max else this
+	@inline def clip(min :Ratio, max :Ratio) :Ratio = if (this < min) min else if (this > max) max else this
 
 
 	@inline def toLong           :Long       = n / d

@@ -1,6 +1,7 @@
 package net.noresttherein.sugar.numeric
 
-import java.{lang=>jl}
+import java.{lang => jl}
+import java.lang.{Math => math}
 import java.lang.Long.{divideUnsigned, remainderUnsigned, toUnsignedString}
 import java.math.{BigInteger, BigDecimal => JavaBigDecimal}
 
@@ -119,33 +120,35 @@ class UInt private[numeric] (override val toInt: Int)
 	@inline def >=(x: Float) : Boolean = (toInt & 0xffffffffL).toFloat >= x
 	@inline def >=(x: Double): Boolean = (toInt & 0xffffffffL).toDouble >= x
 
-	@inline def compare(other: UInt) :Int = numeric.compare((toInt & 0xffffffffL) + Long.MinValue, other + Long.MinValue)
+	@inline def compare(other: UInt): Int = numeric.compare((toInt & 0xffffffffL) + Long.MinValue, other + Long.MinValue)
 	@inline def compare(other: Long): Int = numeric.compare(toLong + Long.MinValue, other)
 //	@inline def compare(other: ULong): Int = compare(toLong + Long.MinValue, other.toLong + Long.MinValue)
 
-	@inline def min(other: UInt): UInt = new UInt(numeric.min(toInt + MinValue, other.toInt + MinValue) - MinValue)
-	@inline def max(other: UInt): UInt = new UInt(numeric.max(toInt + MinValue, other.toInt + MinValue) - MinValue)
+	@inline def min(other: UInt): UInt = new UInt(math.min(toInt + MinValue, other.toInt + MinValue) - MinValue)
+	@inline def max(other: UInt): UInt = new UInt(math.max(toInt + MinValue, other.toInt + MinValue) - MinValue)
+	@inline def clip(min: UInt, max: UInt): UInt =
+		new UInt(math.max(min.toInt & 0xffffffffL, math.min(max.toInt & 0xffffffffL, toInt & 0xffffffffL)).toInt)
 
 	/** Returns `this max other`. */
-	@inline def atLeast(other :UInt) :UInt = if (toInt + MinValue >= other.toInt + MinValue) this else other
+	@inline def atLeast(other: UInt): UInt = if (toInt + MinValue >= other.toInt + MinValue) this else other
 
 	/** Returns `this min other`. */
-	@inline def atMost(other :UInt) :UInt = if (toInt + MinValue <= other.toInt + MinValue) this else other
+	@inline def atMost(other: UInt): UInt = if (toInt + MinValue <= other.toInt + MinValue) this else other
 
 	/** Returns this `UInt`, or `0` if the condition is false. */
-	@inline def orZeroIf(condition :Boolean) :UInt = if (condition) new UInt(0) else this
+	@inline def orZeroIf(condition: Boolean): UInt = if (condition) new UInt(0) else this
 
 	/** Returns this `UInt`, or `0` if it does not satisfy the predicate. */
-	@inline def orZeroIf(condition :UInt => Boolean) :UInt = if (condition(this)) new UInt(0) else this
+	@inline def orZeroIf(condition: UInt => Boolean): UInt = if (condition(this)) new UInt(0) else this
 
 	/** True if this `UInt` is a power of `2`. */
-	@inline def isPowerOf2 :Boolean = (toInt & 0xffffffffL).bitCount == 1
+	@inline def isPowerOf2: Boolean = (toInt & 0xffffffffL).bitCount == 1
 
 	/** The greatest power of 2 lesser or equal to `this`, or zero if this `Int` equals zero. */
-	@inline def powerOf2Floor :UInt = new UInt(toInt.highestOneBit)
+	@inline def powerOf2Floor: UInt = new UInt(toInt.highestOneBit)
 
 	/** The least power of 2 greater or equal to `this`, or zero if this `Int` equals zero. */
-	@inline def powerOf2Ceil :UInt = {
+	@inline def powerOf2Ceil: UInt = {
 		val lowerPow2 = jl.Integer.highestOneBit(toInt)
 		val pow2Mask  = toInt - 1 & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
 		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
@@ -154,7 +157,7 @@ class UInt private[numeric] (override val toInt: Int)
 	}
 
 	/** The least power of 2 greater or equal to `this`. */
-	@inline def nextPowerOf2 :UInt = {
+	@inline def nextPowerOf2: UInt = {
 		val lowerPow2 = jl.Integer.highestOneBit(toInt)
 		val pow2Mask  = toInt - 1 & lowerPow2                     //if (self > lowerPow2) lowerPow2 else 0
 		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
@@ -195,7 +198,7 @@ class UInt private[numeric] (override val toInt: Int)
 
 
 private[numeric] sealed trait Rank1UInts {
-	@inline implicit final def UIntToLong(number :UInt) :Long = number.toInt & 0xffffffffL
+	@inline implicit final def UIntToLong(number: UInt): Long = number.toInt & 0xffffffffL
 }
 
 
@@ -242,18 +245,18 @@ object UInt extends CompanionObject[UInt] with Rank1UInts {
 	private def throwNumberFormatException(value: String): Nothing =
 		throw SugaredNumberFormatException("Value out of [0.." + MaxValue + "] range: " + value)
 
-	@inline implicit def UByteToUInt(number :UByte) :UInt = new UInt(number.toByte & 0xff)
-	@inline implicit def UShortToUInt(number :UShort) :UInt = new UInt(number.toShort & 0xffff)
+	@inline implicit def UByteToUInt(number: UByte): UInt = new UInt(number.toByte & 0xff)
+	@inline implicit def UShortToUInt(number: UShort): UInt = new UInt(number.toShort & 0xffff)
 
 	//todo: in Scala3 create conversions from non negative Int literals
 	@inline implicit def UIntSignedOps(self: UInt): UIntSignedOps = new UIntSignedOps(self.toInt)
 	@inline implicit def UIntUnsignedOps(self: UInt): UIntUnsignedOps = new UIntUnsignedOps(self.toInt)
 
 	class UIntUnsignedOps private[UInt](private val toInt: Int) extends AnyVal {
-		@inline def +(x :UByte):  UInt = new UInt(toInt + (x.toByte & 0xff))
-		@inline def +(x :UShort): UInt = new UInt(toInt + (x.toShort & 0xffff))
-		@inline def +(x :UInt):   UInt = new UInt(toInt + x.toInt)
-		@inline def +(x :ULong):  ULong = new ULong((toInt & 0xffffffffL) + x.toLong)
+		@inline def +(x: UByte):  UInt = new UInt(toInt + (x.toByte & 0xff))
+		@inline def +(x: UShort): UInt = new UInt(toInt + (x.toShort & 0xffff))
+		@inline def +(x: UInt):   UInt = new UInt(toInt + x.toInt)
+		@inline def +(x: ULong):  ULong = new ULong((toInt & 0xffffffffL) + x.toLong)
 		@inline def -(x: UByte):  UInt = new UInt(toInt - (x.toByte & 0xff))
 		@inline def -(x: UShort): UInt = new UInt(toInt - (x.toShort & 0xffff))
 		@inline def -(x: UInt):   UInt = new UInt(toInt - x.toInt)
@@ -272,7 +275,7 @@ object UInt extends CompanionObject[UInt] with Rank1UInts {
 		@inline def %(x: ULong):  ULong = new ULong(remainderUnsigned(toInt & 0xffffffffL, x.toLong))
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :UByte): (UInt, UInt) = {
+		@inline def /%(x: UByte): (UInt, UInt) = {
 			val d = x.toByte & 0xffL
 			val q = (toInt & 0xffffffffL) / d
 			val r = (toInt & 0xffffffffL) - q * d
@@ -280,7 +283,7 @@ object UInt extends CompanionObject[UInt] with Rank1UInts {
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :UShort): (UInt, UInt) = {
+		@inline def /%(x: UShort): (UInt, UInt) = {
 			val d = x.toShort & 0xffffL
 			val q = (toInt & 0xffffffffL) / d
 			val r = (toInt & 0xffffffffL) - q * d
@@ -288,14 +291,14 @@ object UInt extends CompanionObject[UInt] with Rank1UInts {
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :UInt): (UInt, UInt) = {
+		@inline def /%(x: UInt): (UInt, UInt) = {
 			val q = (toInt & 0xffffffffL) / (x.toInt & 0xffffffffL)
 			val r = (toInt & 0xffffffffL) - q * (x.toInt & 0xffffffffL)
 			(new UInt(q.toInt), new UInt(r.toInt))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :ULong): (ULong, ULong) = {
+		@inline def /%(x: ULong): (ULong, ULong) = {
 			val q = divideUnsigned(toInt & 0xffffffffL, x.toLong)
 			val r = (toInt & 0xffffffffL) - q * x.toLong
 			(new ULong(q), new ULong(r))
@@ -327,14 +330,14 @@ object UInt extends CompanionObject[UInt] with Rank1UInts {
 		@inline def %(x: Double): Double = (toInt & 0xffffffffL) % x
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :Int) :(Long, Long) = {
+		@inline def /%(x: Int): (Long, Long) = {
 			val q = (toInt & 0xffffffffL) / x
 			val r = (toInt & 0xffffffffL) - q * x
 			(q, r)
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :Long) :(Long, Long) = {
+		@inline def /%(x: Long): (Long, Long) = {
 			val q = (toInt & 0xffffffffL) / x
 			val r = (toInt & 0xffffffffL) - q * x
 			(q.toInt, r.toInt)

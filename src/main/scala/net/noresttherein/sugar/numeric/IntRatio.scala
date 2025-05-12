@@ -4,10 +4,9 @@ import java.math.{BigInteger, MathContext}
 
 import scala.annotation.tailrec
 
-import net.noresttherein.sugar.exceptions.{SugaredArithmeticException, SugaredNumberFormatException}
-import net.noresttherein.sugar.illegal_!
+import net.noresttherein.sugar.exceptions.{illegal_!, SugaredArithmeticException, SugaredNumberFormatException}
 import net.noresttherein.sugar.numeric.Decimal64.Round.ExtendedExact
-import net.noresttherein.sugar.numeric.IntRatio.{naturalGCD, newIntRatio}
+import net.noresttherein.sugar.numeric.IntRatio.{naturalGCD, newIntRatio, Zero}
 import net.noresttherein.sugar.typist.CompanionObject
 
 
@@ -139,6 +138,8 @@ final class IntRatio private(n :Int, d :Int) extends Number {
 
 	@inline def min(other :IntRatio) :IntRatio = if (this <= other) this else other
 	@inline def max(other :IntRatio) :IntRatio = if (this < other) other else this
+	@inline def clip(max :IntRatio) :IntRatio = if (this < Zero) Zero else if (this > max) max else this
+	@inline def clip(min :IntRatio, max :IntRatio) :IntRatio = if (this < min) min else if (this > max) max else this
 
 
 	@inline def toInt            :Int        = n / d

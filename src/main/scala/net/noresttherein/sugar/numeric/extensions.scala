@@ -23,6 +23,10 @@ private[numeric] trait PromotedExtensions extends Any {
 	@inline implicit final def ByteAsIntExtension(self :Byte) :IntExtension = new IntExtension(self)
 	@inline implicit final def ShortAsIntExtension(self :Short) :IntExtension = new IntExtension(self)
 	@inline implicit final def CharAsIntExtension(self :Char) :IntExtension = new IntExtension(self)
+	//It might be a good idea to add an implicit parameter of Ordering[T],
+	// so that these methods aren't considered unnecessarily.
+	@inline implicit final def hasOrderingExtension[T](self :T) :hasOrderingExtension[T] =
+		new hasOrderingExtension(self)
 }
 
 
@@ -49,8 +53,6 @@ trait extensions extends Any with PromotedExtensions {
 	@inline implicit final def LongExtension(self :Long) :LongExtension = new LongExtension(self)
 	@inline implicit final def FloatExtension(self :Float) :FloatExtension = new FloatExtension(self)
 	@inline implicit final def DoubleExtension(self :Double) :DoubleExtension = new DoubleExtension(self)
-	@inline implicit final def hasOrderingExtension[T](self :T) :hasOrderingExtension[T] =
-		new hasOrderingExtension(self)
 
 	/** Adds `random` extension methods to `Byte` singleton object. */
 	@inline implicit final def ByteCompanionExtension(self :Byte.type) :ByteCompanionExtension = new ByteCompanionExtension {}
@@ -130,11 +132,16 @@ object extensions extends extensions {
 		/** Returns `this min max`. More intuitive for some people. */
 		@inline def atMost(max :Byte) :Byte = math.min(self, max).toByte
 
-		/** Clips the value to range `[0..max]`.
-		  * @return `this max 0 min max`. \
+		/** Clips the value to range `[0..max]` (inclusive).
+		  * @return `this max 0 min max`.
 		  */
-		@inline def clipTo(max :Byte) :Byte = math.max(0, math.min(self, max)).toByte
+		@inline def clip(max :Byte) :Byte = math.max(0, math.min(self, max)).toByte
 		
+		/** Clips the value to range `[0..max]` (inclusive).
+		  * @return `this max min min max`.
+		  */
+		@inline def clip(min :Byte, max :Byte) :Byte = math.max(min, math.min(self, max)).toByte
+
 		/** Forces conversion of this `Byte` to an unsigned value. Will underflow for negative values. */
 		@inline def toUByte :UByte = new UByte(self)
 
@@ -178,10 +185,15 @@ object extensions extends extensions {
 		/** Returns `this min max`. More intuitive for some people. */
 		@inline def atMost(max :Short) :Short = math.min(self, max).toShort
 		
-		/** Clips the value to range `[0..max]`.
+		/** Clips the value to range `[0..max]` (inclusive).
 		  * @return `this max 0 min max` 
 		  */
-		@inline def clipTo(max :Short) :Short = math.max(0, math.min(self, max)).toShort
+		@inline def clip(max :Short) :Short = math.max(0, math.min(self, max)).toShort
+
+		/** Clips the value to range `[min..max]` (inclusive).
+		  * @return `this max min min max`
+		  */
+		@inline def clip(min :Short, max :Short) :Short = math.max(min, math.min(self, max)).toShort
 
 		/** Forces conversion of this `Short` to an unsigned value. Will underflow for negative values. */
 		@inline def toUShort :UShort = new UShort(self)
@@ -309,10 +321,15 @@ object extensions extends extensions {
 		/** Returns `this min max`. More intuitive for some people. */
 		@inline def atMost(max :Int) :Int = math.min(self, max)
 
-		/** Clips the value to range `[0..max]`.
+		/** Clips the value to range `[0..max]` (inclusive).
 		  * @return `this max 0 min max`
 		  */
-		@inline def clipTo(max :Int) :Int = math.max(0, math.min(self, max))
+		@inline def clip(max :Int) :Int = math.max(0, math.min(self, max))
+
+		/** Clips the value to range `[min..max]` (inclusive).
+		  * @return `this max min min max`
+		  */
+		@inline def clip(min :Int, max :Int) :Int = math.max(min, math.min(self, max))
 
 		/** Returns this `Int`, or `0` if the condition is false. */
 		@inline def orZeroIf(condition :Boolean) :Int = if (condition) 0 else self
@@ -523,10 +540,15 @@ object extensions extends extensions {
 		/** Returns `this min max`. More intuitive for some people. */
 		@inline def atMost(max :Long) :Long = math.min(self, max)
 
-		/** Clips the value to range `[0..max]`.
+		/** Clips the value to range `[0..max]` (inclusive).
 		  * @return `this max 0 min max`
 		  */
-		@inline def clipTo(max :Long) :Long = math.max(0L, math.min(self, max))
+		@inline def clip(max :Long) :Long = math.max(0L, math.min(self, max))
+
+		/** Clips the value to range `[min..max]` (inclusive).
+		  * @return `this max min min max`
+		  */
+		@inline def clip(min :Long, max :Long) :Long = math.max(min, math.min(self, max))
 
 		/** Returns this `Long`, or `0` if the condition is false. */
 		@inline def orZeroIf(condition :Boolean) :Long = if (condition) 0 else self
@@ -672,10 +694,15 @@ object extensions extends extensions {
 		/** Returns `this min max`. More intuitive for some people. */
 		@inline def atMost(max :Float) :Float = math.min(self, max)
 
-		/** Clips the value to range `[0..max]`.
+		/** Clips the value to range `[0..max]` (inclusive).
 		  * @return `this max 0 min max`
 		  */
-		@inline def clipTo(max :Float) :Float = math.max(0.0f, math.min(self, max))
+		@inline def clip(max :Float) :Float = math.max(0.0f, math.min(self, max))
+
+		/** Clips the value to range `[min..max]` (inclusive).
+		  * @return `this max min min max`
+		  */
+		@inline def clip(min :Float, max :Float) :Float = math.max(min, math.min(self, max))
 
 		/** Converts this `Float` to a decimal number, rounding if necessary. */
 		@inline def toDecimal64 :Decimal64 = Decimal64.round(self)
@@ -707,10 +734,15 @@ object extensions extends extensions {
 		/** Returns `this min max`. More intuitive for some people. */
 		@inline def atMost(max :Double) :Double = math.min(self, max)
 
-		/** Clips the value to range `[0..max]`.
+		/** Clips the value to range `[0..max]` (inclusive).
 		  * @return `this max 0 min max`
 		  */
-		@inline def clipTo(max :Double) :Double = math.max(0.0, math.min(self, max))
+		@inline def clip(max :Double) :Double = math.max(0.0, math.min(self, max))
+
+		/** Clips the value to range `[min..max]` (inclusive).
+		  * @return `this max min min max`
+		  */
+		@inline def clip(min :Double, max :Double) :Double = math.max(min, math.min(self, max))
 
 		/** Converts this `Double` to a decimal number, rounding if necessary. */
 		@inline def toDecimal64 :Decimal64 = Decimal64.round(self)
@@ -725,6 +757,9 @@ object extensions extends extensions {
 		@inline def atLeast(other :T)(implicit ordering :Ordering[T]) :T = ordering.max(self, other)
 		/** Returns `ordering.min(this, other)`. */
 		@inline def atMost(other :T)(implicit ordering :Ordering[T]) :T = ordering.min(self, other)
+
+		@inline def clip(min :T, max :T)(implicit ordering :Ordering[T]) :T = ordering.max(min, ordering.min(max, self))
+		@inline def clip(max :T)(implicit ordering :Numeric[T]) :T = ordering.max(ordering.zero, ordering.min(max, self))
 	}
 
 

@@ -108,18 +108,20 @@ class UByte private[numeric](override val toByte: Byte)
 
 	@inline def min(other: UByte): UByte = new UByte(jl.Math.min(toByte & 0xff, other.toByte & 0xff).toByte)
 	@inline def max(other: UByte): UByte = new UByte(jl.Math.max(toByte & 0xff, other.toByte & 0xff).toByte)
+	@inline def clip(min: UByte, max: UByte): UByte =
+		new UByte(jl.Math.max(min.toByte & 0xff, jl.Math.min(max.toByte & 0xff, toByte & 0xff)).toByte)
 
 	/** Returns `this max other`. */
-	@inline def atLeast(other :UByte) :UByte = new UByte(jl.Math.max(toByte & 0xff, other.toByte & 0xff).toByte)
+	@inline def atLeast(other: UByte): UByte = new UByte(jl.Math.max(toByte & 0xff, other.toByte & 0xff).toByte)
 
 	/** Returns `this min other`. */
-	@inline def atMost(other :UByte) :UByte = new UByte(jl.Math.min(toByte & 0xff, other.toByte & 0xff).toByte)
+	@inline def atMost(other: UByte): UByte = new UByte(jl.Math.min(toByte & 0xff, other.toByte & 0xff).toByte)
 
 	/** Returns this `UByte`, or `0` if the condition is false. */
-	@inline def orZeroIf(condition :Boolean) :UByte = if (condition) new UByte(0) else this
+	@inline def orZeroIf(condition: Boolean): UByte = if (condition) new UByte(0) else this
 
 	/** Returns this `UInt`, or `0` if it does not satisfy the predicate. */
-	@inline def orZeroIf(condition :UByte => Boolean) :UByte = if (condition(this)) new UByte(0) else this
+	@inline def orZeroIf(condition: UByte => Boolean): UByte = if (condition(this)) new UByte(0) else this
 
 	type ResultWithoutStep = NumericRange[UByte]
 	@inline def to(end: UByte): NumericRange.Inclusive[UByte] =
@@ -135,13 +137,13 @@ class UByte private[numeric](override val toByte: Byte)
 	@inline def in(range: NumericRange[UByte]): Boolean = range.containsTyped(this)
 
 
-//	private def underflow(method :String) :Nothing =
+//	private def underflow(method: String): Nothing =
 //		throw SugaredArithmeticException("Ops underflow: " + this + "." + method + ".")
 
-	private def outOfRange(typeName :String) :Nothing =
+	private def outOfRange(typeName: String): Nothing =
 		throw SugaredArithmeticException("Value " + this + " is out of " + typeName + " range.")
 
-//	@inline private def testRange(max :Int, typeName :String) :Unit =
+//	@inline private def testRange(max: Int, typeName: String): Unit =
 //		if (toInt + MinValue > max + MinValue)
 //			outOfRange(typeName)
 }
@@ -218,10 +220,10 @@ case object UByte extends CompanionObject[UByte] with Rank1UBytes {
 
 	class UByteUnsignedOps private[UByte](private val toByte: Int) extends AnyVal {
 		//do we need & 0xxff here?
-		@inline def +(x :UByte):   UByte = new UByte(((toByte & 0xff) + (x.toByte & 0xff)).toByte)
-		@inline def +(x :UShort):  UShort = new UShort(((toByte & 0xff) + (x.toShort & 0xffff)).toShort)
-		@inline def +(x :UInt):    UInt = new UInt((toByte & 0xff) + x.toInt)
-		@inline def +(x :ULong):   ULong = new ULong((toByte & 0xffL) + x.toLong)
+		@inline def +(x: UByte):   UByte = new UByte(((toByte & 0xff) + (x.toByte & 0xff)).toByte)
+		@inline def +(x: UShort):  UShort = new UShort(((toByte & 0xff) + (x.toShort & 0xffff)).toShort)
+		@inline def +(x: UInt):    UInt = new UInt((toByte & 0xff) + x.toInt)
+		@inline def +(x: ULong):   ULong = new ULong((toByte & 0xffL) + x.toLong)
 		@inline def -(x: UByte):   UByte = new UByte(((toByte & 0xff) - (x.toByte & 0xff)).toByte)
 		@inline def -(x: UShort):  UShort = new UShort(((toByte & 0xff) + (x.toShort & 0xffff)).toShort)
 		@inline def -(x: UInt):    UInt = new UInt((toByte & 0xff) + x.toInt)
@@ -244,28 +246,28 @@ case object UByte extends CompanionObject[UByte] with Rank1UBytes {
 		@inline def **(n: UInt):   UInt = new UInt((toByte & 0xff).pow(n.toInt))
 
 		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
-		@inline def /%(x :UByte): (UByte, UByte) = {
+		@inline def /%(x: UByte): (UByte, UByte) = {
 			val q = (toByte & 0xff) / (x.toByte & 0xff)
 			val r = (toByte & 0xff) - q * (x.toByte & 0xff)
 			(new UByte(q.toByte), new UByte(r.toByte))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
-		@inline def /%(x :UShort): (UShort, UShort) = {
+		@inline def /%(x: UShort): (UShort, UShort) = {
 			val q = (toByte & 0xff) / (x.toShort & 0xffff)
 			val r = (toByte & 0xff) - q * (x.toShort & 0xffff)
 			(new UShort(q.toShort), new UShort(r.toShort))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
-		@inline def /%(x :UInt): (UInt, UInt) = {
+		@inline def /%(x: UInt): (UInt, UInt) = {
 			val q = (toByte & 0xffL) / (x.toInt & 0xffffffffL)
 			val r = (toByte & 0xffL) - q * (x.toInt & 0xffffffffL)
 			(new UInt(q.toInt), new UInt(r.toInt))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UByte` by the argument. */
-		@inline def /%(x :ULong): (ULong, ULong) = {
+		@inline def /%(x: ULong): (ULong, ULong) = {
 			val q = divideUnsigned((toByte & 0xffL), x.toLong)
 			val r = (toByte & 0xffL) - q * x.toLong
 			(new ULong(q), new ULong(r))
@@ -286,14 +288,14 @@ case object UByte extends CompanionObject[UByte] with Rank1UBytes {
 		@inline def %(x: Double): Double = (toByte & 0xffL) % x
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :Int): (Int, Int) = {
+		@inline def /%(x: Int): (Int, Int) = {
 			val q = (toByte & 0xff) / x
 			val r = (toByte & 0xff) - q * x
 			(q, r)
 		}
 
 		/** Returns the quotient and the remainder of the division of this `UInt` by the argument. */
-		@inline def /%(x :Long): (Long, Long) = {
+		@inline def /%(x: Long): (Long, Long) = {
 			val q = (toByte & 0xffL) / x
 			val r = (toByte & 0xffL) - q * x
 			(q, r)

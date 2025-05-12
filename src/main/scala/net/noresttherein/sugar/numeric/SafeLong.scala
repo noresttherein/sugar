@@ -18,7 +18,7 @@ import net.noresttherein.sugar.typist.CompanionObject
   * @author Marcin Mościcki
   */
 @SerialVersionUID(Ver)
-class SafeLong private[numeric] (override val toLong :Long)
+class SafeLong private[numeric] (override val toLong: Long)
 	extends AnyVal with Ordered[SafeLong] with ScalaNumericAnyConversions with Serializable
 {
 	@inline override def isWhole     : Boolean = true
@@ -73,7 +73,7 @@ class SafeLong private[numeric] (override val toLong :Long)
 	@inline def toJavaBigDecimal: JavaBigDecimal = JavaBigDecimal.valueOf(toLong)
 
 	@inline override def toString   : String = String.valueOf(toLong)
-	@inline def toString(radix :Int): String = jl.Long.toString(toLong, radix)
+	@inline def toString(radix: Int): String = jl.Long.toString(toLong, radix)
 	@inline def toBinaryString      : String = jl.Long.toBinaryString(toLong)
 	@inline def toOctalString       : String = jl.Long.toOctalString(toLong)
 	@inline def toHexString         : String = jl.Long.toHexString(toLong)
@@ -142,22 +142,25 @@ class SafeLong private[numeric] (override val toLong :Long)
 	@inline def >=(x: Float) : Boolean = toFloat >= x
 	@inline def >=(x: Double): Boolean = toDouble >= x
 
-	@inline def compare(x :SafeLong) :Int = jl.Long.compare(toLong, x.toLong)
+	@inline def compare(x: SafeLong): Int = jl.Long.compare(toLong, x.toLong)
 
-	@inline def min(other :SafeLong) :SafeLong = new SafeLong(jl.Math.min(toLong, other.toLong))
-	@inline def max(other :SafeLong) :SafeLong = new SafeLong(jl.Math.max(toLong, other.toLong))
+	@inline def min(other: SafeLong): SafeLong = new SafeLong(jl.Math.min(toLong, other.toLong))
+	@inline def max(other: SafeLong): SafeLong = new SafeLong(jl.Math.max(toLong, other.toLong))
+	@inline def clip(max: SafeLong): SafeLong = new SafeLong(jl.Math.max(0L, jl.Math.min(max.toLong, toLong)))
+	@inline def clip(min: SafeLong, max: SafeLong): SafeLong =
+		new SafeLong(jl.Math.max(min.toLong, jl.Math.min(max.toLong, toLong)))
 
 	/** Returns `this max other`. */
-	@inline def atLeast(other :ULong) :SafeLong = new SafeLong(jl.Math.max(toLong, other.toLong))
+	@inline def atLeast(other: ULong): SafeLong = new SafeLong(jl.Math.max(toLong, other.toLong))
 
 	/** Returns `this min other`. */
-	@inline def atMost(other :ULong) :SafeLong = new SafeLong(jl.Math.min(toLong, other.toLong))
+	@inline def atMost(other: ULong): SafeLong = new SafeLong(jl.Math.min(toLong, other.toLong))
 
 	/** Returns this `Long`, or `0` if the condition is false. */
-	@inline def orZeroIf(condition :Boolean) :SafeLong = if (condition) new SafeLong(0) else this
+	@inline def orZeroIf(condition: Boolean): SafeLong = if (condition) new SafeLong(0) else this
 
 	/** Returns this `Long`, or `0` if it does not satisfy the predicate. */
-	@inline def orZeroIf(condition :SafeLong => Boolean) :SafeLong =
+	@inline def orZeroIf(condition: SafeLong => Boolean): SafeLong =
 		if (condition(this)) new SafeLong(0) else this
 
 	@inline def |(x: Byte) : SafeLong = new SafeLong(toLong | x)
@@ -206,17 +209,17 @@ class SafeLong private[numeric] (override val toLong :Long)
 		else new SafeLong(toLong / x)
 	@inline def /(x: Float) : Float    = checkFloatResult(x, "/", toFloat / x)
 	@inline def /(x: Double): Double   = checkDoubleResult(x, "/", toDouble / x)
-	@inline def %(x :Byte)  : SafeLong = new SafeLong(toLong % x)
+	@inline def %(x: Byte)  : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Short) : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Char)  : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Int)   : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Long)  : SafeLong = new SafeLong(toLong % x)
 	@inline def %(x: Float) : Float    = checkFloatResult(x, "%", toFloat % x)
 	@inline def %(x: Double): Double   = checkDoubleResult(x, "%", toDouble % x)
-	@inline def **(n :Int)  : SafeLong = pow(n)
+	@inline def **(n: Int)  : SafeLong = pow(n)
 
 	/** Raises this `SafeLong` to the given power. If the argument is negative, `0` is returned. */
-	def pow(exp :Int): SafeLong =
+	def pow(exp: Int): SafeLong =
 		if (exp < 0)
 			new SafeLong(0L)
 		else {
@@ -236,28 +239,28 @@ class SafeLong private[numeric] (override val toLong :Long)
 	  * @param denominator the denominator of the created rational (before reduction)
 	  * @return a rational number representing the canonical form of the `numerator/denominator` fraction.
 	  */
-	@inline def %/(denominator :Long) :Ratio = Ratio(toInt, denominator)
+	@inline def %/(denominator: Long): Ratio = Ratio(toInt, denominator)
 
 	type ResultWithoutStep = NumericRange[SafeLong]
-	@inline def to(end :SafeLong) :NumericRange.Inclusive[SafeLong] =
+	@inline def to(end: SafeLong): NumericRange.Inclusive[SafeLong] =
 		NumericRange.inclusive(this, end, new SafeLong(1))
 
-	@inline def to(end :SafeLong, step :SafeLong) :NumericRange.Inclusive[SafeLong] =
+	@inline def to(end: SafeLong, step: SafeLong): NumericRange.Inclusive[SafeLong] =
 		NumericRange.inclusive(this, end, step)
 
-	@inline def until(end :SafeLong) :NumericRange.Exclusive[SafeLong] = NumericRange(this, end, new SafeLong(1))
-	@inline def until(end :SafeLong, step :SafeLong) :NumericRange.Exclusive[SafeLong] =
+	@inline def until(end: SafeLong): NumericRange.Exclusive[SafeLong] = NumericRange(this, end, new SafeLong(1))
+	@inline def until(end: SafeLong, step: SafeLong): NumericRange.Exclusive[SafeLong] =
 		NumericRange(this, end, step)
 
 	@inline def in(range: NumericRange[SafeLong]): Boolean = range.containsTyped(this)
 
-	@inline private def overflow(msg :String) :Nothing =
+	@inline private def overflow(msg: String): Nothing =
 		throw SugaredArithmeticException("Arithmetic overflow: " + msg + ".")
 
-	@inline private def underflow(msg :String) :Nothing =
+	@inline private def underflow(msg: String): Nothing =
 		throw SugaredArithmeticException("Arithmetic overflow: " + msg + ".")
 
-	@inline private def checkFloatResult(arg :Float, op :String, result :Float) :Float = {
+	@inline private def checkFloatResult(arg: Float, op: String, result: Float): Float = {
 		if (result != result | result == jl.Float.POSITIVE_INFINITY | result == jl.Float.NEGATIVE_INFINITY)
 			if (result == jl.Float.POSITIVE_INFINITY)
 				overflow(String.valueOf(toLong) + " " + op + " " + arg + " is Float.POSITIVE_INFINITY.")
@@ -268,7 +271,7 @@ class SafeLong private[numeric] (override val toLong :Long)
 		result
 	}
 
-	@inline private def checkDoubleResult(arg :Double, op :String, result :Double) :Double = {
+	@inline private def checkDoubleResult(arg: Double, op: String, result: Double): Double = {
 		if (result != result | result == jl.Double.POSITIVE_INFINITY | result == jl.Double.NEGATIVE_INFINITY)
 			if (result == jl.Double.POSITIVE_INFINITY)
 				overflow(String.valueOf(toLong) + " " + op + " " + arg + " is Double.POSITIVE_INFINITY.")
@@ -279,13 +282,13 @@ class SafeLong private[numeric] (override val toLong :Long)
 		result
 	}
 
-	private[numeric] def outOfPrecision(typeName :String) :Nothing =
+	private[numeric] def outOfPrecision(typeName: String): Nothing =
 		throw SugaredArithmeticException("Value " + toLong + " cannot be exactly represented as a " + typeName + ".")
 
-	private[numeric] def outOfRange(typeName :String) :Nothing =
+	private[numeric] def outOfRange(typeName: String): Nothing =
 			throw SugaredArithmeticException("Value " + toLong + " does not fit in a " + typeName + ".")
 
-	@inline private[numeric] def testRange(min :Long, max :Long, typeName :String) :Unit =
+	@inline private[numeric] def testRange(min: Long, max: Long, typeName: String): Unit =
 		if (toLong < min | toLong > max)
 			outOfRange(typeName)
 }
@@ -295,44 +298,44 @@ class SafeLong private[numeric] (override val toLong :Long)
 
 @SerialVersionUID(Ver)
 object SafeLong extends CompanionObject[SafeLong] {
-	@inline def apply(value :Long) :SafeLong = new SafeLong(value)
+	@inline def apply(value: Long): SafeLong = new SafeLong(value)
 
-	@inline def apply(string :String, radix :Int = 10) :SafeLong =
+	@inline def apply(string: String, radix: Int = 10): SafeLong =
 		new SafeLong(jl.Long.parseLong(string, radix))
 
-	@inline def decode(string :String) :SafeLong =
+	@inline def decode(string: String): SafeLong =
 		new SafeLong(jl.Long.decode(string))
 
-	@inline def parse(string :String) :Option[SafeLong] =
+	@inline def parse(string: String): Option[SafeLong] =
 		Numeric.LongIsIntegral.parseString(string).map(new SafeLong(_))
 
-	@inline implicit def safeLongFromByte(value :Byte) :SafeLong = new SafeLong(value)
-	@inline implicit def safeLongFromShort(value :Short) :SafeLong = new SafeLong(value)
-	@inline implicit def safeLongFromInt(value :Int) :SafeLong = new SafeLong(value)
-	@inline implicit def safeLongFromLong(value :Long) :SafeLong = new SafeLong(value)
-	@inline implicit def safeLongToLong(value :SafeLong) :Long = value.toLong
+	@inline implicit def safeLongFromByte(value: Byte): SafeLong = new SafeLong(value)
+	@inline implicit def safeLongFromShort(value: Short): SafeLong = new SafeLong(value)
+	@inline implicit def safeLongFromInt(value: Int): SafeLong = new SafeLong(value)
+	@inline implicit def safeLongFromLong(value: Long): SafeLong = new SafeLong(value)
+	@inline implicit def safeLongToLong(value: SafeLong): Long = value.toLong
 
 	sealed abstract class SafeLongIsNumeric extends Numeric[SafeLong] {
-		override def plus(x :SafeLong, y :SafeLong) :SafeLong = x + y
-		override def minus(x :SafeLong, y :SafeLong) :SafeLong = x - y
-		override def times(x :SafeLong, y :SafeLong) :SafeLong = x * y
-		override def negate(x :SafeLong) :SafeLong = -x
-		override def fromInt(x :Int) :SafeLong = new SafeLong(x)
-		override def parseString(str :String) :Option[SafeLong] = SafeLong.parse(str)
-		override def toInt(x :SafeLong) :Int = x.toInt
-		override def toLong(x :SafeLong) :Long = x.toLong
-		override def toFloat(x :SafeLong) :Float = x.toFloat
-		override def toDouble(x :SafeLong) :Double = x.toDouble
-		override def compare(x :SafeLong, y :SafeLong) :Int = x compare y
+		override def plus(x: SafeLong, y: SafeLong): SafeLong = x + y
+		override def minus(x: SafeLong, y: SafeLong): SafeLong = x - y
+		override def times(x: SafeLong, y: SafeLong): SafeLong = x * y
+		override def negate(x: SafeLong): SafeLong = -x
+		override def fromInt(x: Int): SafeLong = new SafeLong(x)
+		override def parseString(str: String): Option[SafeLong] = SafeLong.parse(str)
+		override def toInt(x: SafeLong): Int = x.toInt
+		override def toLong(x: SafeLong): Long = x.toLong
+		override def toFloat(x: SafeLong): Float = x.toFloat
+		override def toDouble(x: SafeLong): Double = x.toDouble
+		override def compare(x: SafeLong, y: SafeLong): Int = x compare y
 	}
 	@SerialVersionUID(Ver)
 	implicit object SafeLongIsIntegral extends SafeLongIsNumeric with Integral[SafeLong] {
-		override def quot(x :SafeLong, y :SafeLong) :SafeLong = x / y
-		override def rem(x :SafeLong, y :SafeLong) :SafeLong = x % y
+		override def quot(x: SafeLong, y: SafeLong): SafeLong = x / y
+		override def rem(x: SafeLong, y: SafeLong): SafeLong = x % y
 	}
 	@SerialVersionUID(Ver)
 	object SafeLongAsFractional extends SafeLongIsNumeric with Fractional[SafeLong] {
-		override def div(x :SafeLong, y :SafeLong) :SafeLong = x / y
+		override def div(x: SafeLong, y: SafeLong): SafeLong = x / y
 	}
 
 }

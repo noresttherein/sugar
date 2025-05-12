@@ -155,6 +155,8 @@ class ULong private[numeric] (override val toLong: Long)
 
 	@inline def min(other: ULong): ULong = new ULong(jl.Math.min(toLong + MinValue, other.toLong + MinValue) - MinValue)
 	@inline def max(other: ULong): ULong = new ULong(jl.Math.max(toLong + MinValue, other.toLong + MinValue) - MinValue)
+	@inline def clip(min: ULong, max: ULong): ULong =
+		new ULong(jl.Math.max(toLong + MinValue, jl.Math.min(max.toLong + Long.MinValue, toLong + MinValue)) - MinValue)
 
 	/** Returns `this max other`. */
 	@inline def atLeast(other: ULong): ULong = if (toLong + MinValue >= other.toLong + MinValue) this else other
@@ -168,16 +170,16 @@ class ULong private[numeric] (override val toLong: Long)
 	/** Returns this `ULong`, or `0` if it does not satisfy the predicate. */
 	@inline def orZeroIf(condition: ULong => Boolean): ULong = if (condition(this)) new ULong(0L) else this
 
-	@inline def isPowerOf2 :Boolean = toLong.bitCount == 1
+	@inline def isPowerOf2: Boolean = toLong.bitCount == 1
 
 	/** The greatest power of 2 lesser or equal to `this`, or zero if this `Long` equals zero. */
-	@inline def powerOf2Floor :ULong = new ULong(highestOneBit(toLong))
+	@inline def powerOf2Floor: ULong = new ULong(highestOneBit(toLong))
 
 	/** The greatest power of 2 lesser or equal to `this`, or zero if this `Long` equals zero. */
-	@inline def lastPowerOf2 :ULong = new ULong(highestOneBit(toLong))
+	@inline def lastPowerOf2: ULong = new ULong(highestOneBit(toLong))
 
 	/** The least power of 2 greater or equal to `this`, or zero if this `Long` equals zero. */
-	def powerOf2Ceil :ULong = { //todo: a better name; zero is not a power of 2. doubleFloor would almost fit.
+	def powerOf2Ceil: ULong = { //todo: a better name; zero is not a power of 2. doubleFloor would almost fit.
 		val lowerPow2 = highestOneBit(toLong)
 		val pow2Mask  = toLong - 1 & lowerPow2                    //if (self > lowerPow2) lowerPow2 else 0
 		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
@@ -186,7 +188,7 @@ class ULong private[numeric] (override val toLong: Long)
 	}
 
 	/** The least power of 2 greater or equal to `this`. */
-	def nextPowerOf2 :ULong = {
+	def nextPowerOf2: ULong = {
 		val lowerPow2 = highestOneBit(toLong)
 		val pow2Mask  = toLong - 1 & lowerPow2                    //if (self > lowerPow2) lowerPow2 else 0
 		val ifGtPow2  = pow2Mask << 1                             //if (self > lowerPow2) lowerPow2 else 0
@@ -291,18 +293,18 @@ object ULong extends CompanionObject[ULong] {
 		@inline def *(x: UByte):  ULong = new ULong(toLong * (x.toByte & 0xffL))
 		@inline def *(x: UShort): ULong = new ULong(toLong * (x.toShort & 0xffffL))
 		@inline def *(x: UInt):   ULong = new ULong(toLong * (x.toInt & 0xffffffffL))
-		@inline def *(x :ULong):  ULong = new ULong(toLong * x.toLong)
+		@inline def *(x: ULong):  ULong = new ULong(toLong * x.toLong)
 		@inline def /(x: UByte):  ULong = new ULong(divideUnsigned(toLong, x.toByte & 0xffL))
 		@inline def /(x: UShort): ULong = new ULong(divideUnsigned(toLong, x.toShort & 0xffffL))
 		@inline def /(x: UInt):   ULong = new ULong(divideUnsigned(toLong, x.toInt & 0xffffffffL))
-		@inline def /(x :ULong):  ULong = new ULong(divideUnsigned(toLong, x.toLong))
+		@inline def /(x: ULong):  ULong = new ULong(divideUnsigned(toLong, x.toLong))
 		@inline def %(x: UByte):  ULong = new ULong(remainderUnsigned(toLong, x.toByte & 0xffL))
 		@inline def %(x: UShort): ULong = new ULong(remainderUnsigned(toLong, x.toShort & 0xffffL))
 		@inline def %(x: UInt):   ULong = new ULong(remainderUnsigned(toLong, x.toInt & 0xffffffffL))
 		@inline def %(x: ULong):  ULong = new ULong(remainderUnsigned(toLong, x.toLong))
 
 		/** Returns the quotient and the remainder of the division of this `ULong` by the argument. */
-		@inline def /%(x :UByte): (ULong, ULong) = {
+		@inline def /%(x: UByte): (ULong, ULong) = {
 			val d = x.toByte & 0xffL
 			val q = divideUnsigned(toLong, d)
 			val r = toLong - q * d
@@ -310,7 +312,7 @@ object ULong extends CompanionObject[ULong] {
 		}
 
 		/** Returns the quotient and the remainder of the division of this `ULong` by the argument. */
-		@inline def /%(x :UShort): (ULong, ULong) = {
+		@inline def /%(x: UShort): (ULong, ULong) = {
 			val d = x.toShort & 0xffffL
 			val q = divideUnsigned(toLong, d)
 			val r = toLong - q * d
@@ -318,14 +320,14 @@ object ULong extends CompanionObject[ULong] {
 		}
 
 		/** Returns the quotient and the remainder of the division of this `ULong` by the argument. */
-		@inline def /%(x :UInt): (ULong, ULong) = {
+		@inline def /%(x: UInt): (ULong, ULong) = {
 			val q = divideUnsigned(toLong, x.toInt & 0xffffffffL)
 			val r = toLong - q * (x.toInt & 0xffffffffL)
 			(new ULong(q), new ULong(r))
 		}
 
 		/** Returns the quotient and the remainder of the division of this `ULong` by the argument. */
-		@inline def /%(x :ULong): (ULong, ULong) = {
+		@inline def /%(x: ULong): (ULong, ULong) = {
 			val q = divideUnsigned(toLong & 0xffffffffL, x.toLong)
 			val r = toLong - q * x.toLong
 			(new ULong(q), new ULong(r))
@@ -357,7 +359,7 @@ object ULong extends CompanionObject[ULong] {
 		@inline def *(x: Float) : Float  = new ULong(toLong).toFloat * x
 		@inline def *(x: Double): Double = new ULong(toLong).toDouble * x
 		@inline def /(x: Byte)  : ULong  = new ULong(divideUnsigned(toLong, x & 0xffL))
-		@inline def /(x :Short) : ULong  = new ULong(divideUnsigned(toLong, x & 0xffffL))
+		@inline def /(x: Short) : ULong  = new ULong(divideUnsigned(toLong, x & 0xffffL))
 		@inline def /(x: Int)   : ULong  = new ULong(divideUnsigned(toLong, x & 0xffffffffL))
 		@inline def /(x: Long)  : ULong  = new ULong(divideUnsigned(toLong, x))
 		@inline def /(x: Float) : Float  = new ULong(toLong).toFloat / x
@@ -369,11 +371,11 @@ object ULong extends CompanionObject[ULong] {
 		@inline def %(x: Float) : Float  = new ULong(toLong).toFloat % x
 		@inline def %(x: Double): Double = new ULong(toLong).toDouble % x
 
-		@inline def /%(x :Byte)  :(ULong, ULong) = /%(x & 0xffL)
-		@inline def /%(x :Short) :(ULong, ULong) = /%(x & 0xffffL)
-		@inline def /%(x :Int)   :(ULong, ULong) = /%(x & 0xffffffffL)
+		@inline def /%(x: Byte) : (ULong, ULong) = /%(x & 0xffL)
+		@inline def /%(x: Short): (ULong, ULong) = /%(x & 0xffffL)
+		@inline def /%(x: Int)  : (ULong, ULong) = /%(x & 0xffffffffL)
 		/** Returns the quotient and the remainder of the division of this `ULong` by the argument. */
-		@inline def /%(x :Long) :(ULong, ULong) = {
+		@inline def /%(x: Long): (ULong, ULong) = {
 			val q = divideUnsigned(toLong, x)
 			val r = toLong - q * x
 			(new ULong(q), new ULong(r))
@@ -395,8 +397,8 @@ object ULong extends CompanionObject[ULong] {
 				Ratio(divideUnsigned(toLong, gcd), divideUnsigned(denominator, gcd))
 			}
 
-		private def unsignedGCD(a :Long, b :Long) :Long = {
-			@tailrec def rec(a :Long, b :Long) :Long =
+		private def unsignedGCD(a: Long, b: Long): Long = {
+			@tailrec def rec(a: Long, b: Long): Long =
 				if (b == 0) a
 				else rec(b, remainderUnsigned(a, b))
 			if (a + Long.MinValue > b + Long.MinValue) rec(a, b)
@@ -449,9 +451,9 @@ object ULong extends CompanionObject[ULong] {
 		override def div(x: ULong, y: ULong): ULong = x / y
 	}
 //
-//	@inline private def toBinaryString(x :Long) :String = jl.Long.toBinaryString(x)
-//	@inline private def toOctalString(x :Long) :String = jl.Long.toOctalString(x)
-//	@inline private def toHexString(x :Long) :String = jl.Long.toHexString(x)
+//	@inline private def toBinaryString(x: Long): String = jl.Long.toBinaryString(x)
+//	@inline private def toOctalString(x: Long): String = jl.Long.toOctalString(x)
+//	@inline private def toHexString(x: Long): String = jl.Long.toHexString(x)
 
 	private final val FloatMaxLongTimes2          = Long.MaxValue.toFloat * 2.0f
 	private final val DoubleMaxLongTimes2         = Long.MaxValue.toDouble * 2.0
