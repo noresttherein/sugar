@@ -4,16 +4,18 @@ import scala.collection.{ArrayOps, BufferedIterator}
 import scala.collection.immutable.ArraySeq
 import scala.reflect.ClassTag
 
-import net.noresttherein.sugar.extensions.classNameMethods
-import net.noresttherein.sugar.testing.scalacheck.extensions.PropExtension
 import org.scalacheck.Prop.forAll
 import org.scalacheck.{Arbitrary, Gen, Prop}
+
+import net.noresttherein.sugar.collections.MatrixSliceFactory
+import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.testing.scalacheck.extensions.PropExtension
 
 
 
 
 abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
-                                  (name :String, override val factory :AbstractMatrixIteratorFactory[Array, I])
+                                  (name :String, override val factory :MatrixSliceFactory[Array, I])
 	extends IndexedIteratorProps[Array2, I](name, factory)
 {
 	val MaxDim = 10
@@ -62,34 +64,45 @@ abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 		forAll { a :Array2[String]  => prop(clone(a)) lbl contents(a) }
 
 
-	protected def expectSlice[X](array :Array2[X], from2 :Int, from1 :Int, until2 :Int, until1 :Int) :Seq[X] =
-		if (until2 < 0 | until2 < from2 || from2 >= array.length || array.length == 0 || array(0).length == 0)
+	protected def expectSlice[X](source :Array2[X], from2 :Int, from1 :Int, until2 :Int, until1 :Int) :Seq[X] =
+		if (until2 < 0 || source.length == 0 || source(0).length == 0)
 			Seq.empty
+		else if (from2 < 0)
+			expectSlice(source, 0, 0, until2, until1)
 		else {
-			val len       = array(0).length
-			val start2    = clip(from2, array.length)
-			val end2      = clip(until2, array.length)
-			val start1    = clip(from1, len)
-			val end1      = clip(until1, len)
-			expectSlice(array, start2 * len + start1, end2 * len + end1)
+			val len       = source(0).length
+			val start2    = clip(from2, source.length)
+			val end2      = clip(until2, source.length)
+			val start1    =
+				if (from1 < 0) -1
+				else if (from2 >= source.length) 0
+				else if (from1 >= len) len
+				else from1
+			val end1      =
+				if (until1 < 0) -1
+				else if (until2 >= source.length) 0
+				else if (until1 > len) len
+				else until1
+			expectSlice(source, start2 * len + start1, end2 * len + end1)
 		}
 	//We can't just easily delegate to expectSlice without checking for overflows and underflows, at which point
 	// we did most of the work anyway.
 	protected def expectApply[X](source :Array2[X], from2 :Int, from1 :Int, size :Int) :Seq[X] =
 		if (size <= 0 || source.length == 0 || source(0).length == 0)
 			Seq.empty
+		else if (from2 < 0)
+			expectApply(source, direction, size)
 		else if (from1 < 0)
-			expectApply(source, math.max(from2, -1) - 1, source(0).length, size)
+			expectApply(source, math.min(from2, source.length) - 1, source(0).length - 1, size)
 		else {
 			val len    = source(0).length
 			val start2 = clip(from2, source.length)
 			val start1 =
-				if (from2 < 0) direction
-				else if (from2 > source.length) len
-				else clip(from1, len + direction)
+				if (from2 >= source.length) 0
+				else clip(from1, len)
 			expectApply(source, start2 * len + start1, size)
 		}
-	protected def direction = 0
+	protected def direction = 0 //0 for forward iterators and -1 for reverse iterators.
 
 	new IteratorProperty("slice(array, from2, from1, until2, until1)") {
 		override def apply[X :ClassTag :Ordering :Arbitrary](source :Array2[X]) :Prop =
@@ -149,15 +162,15 @@ object ReverseMatrixIteratorSpec
 
 
 abstract class CyclicMatrixIteratorProps[I[+X] <: BufferedIterator[X]]
-                                        (name :String, factory :AbstractMatrixIteratorFactory[Array, I])
+                                        (name :String, factory :MatrixSliceFactory[Array, I])
 	extends MatrixIteratorProps[I](name, factory)
 {
-	protected override def expectSlice[X](array :Array2[X], from2 :Int, from1 :Int, until2 :Int, until1 :Int) :Seq[X] =
-		if (array.length == 0 || array(0).length == 0)
+	protected override def expectSlice[X](source :Array2[X], from2 :Int, from1 :Int, until2 :Int, until1 :Int) :Seq[X] =
+		if (source.length == 0 || source(0).length == 0)
 			Seq.empty
 		else {
-			val length2 = array.length
-			val length1 = array(0).length
+			val length2 = source.length
+			val length1 = source(0).length
 			val adjustedFrom2  = if (from1 >= length1) from2.toLong + 1 else from2.toLong
 			val adjustedUntil2 = if (until1 >= length1) until2.toLong + 1 else until2.toLong
 			val clippedFrom1   = clip(from1, length1)// % length1
@@ -170,9 +183,9 @@ abstract class CyclicMatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 				val from   = modFrom2 * length1 + clippedFrom1
 				val until  = modUntil2 * length1 + clippedUntil1
 				if (from == until)
-					expectSlice(array, from, from + length2 * length1)
+					expectSlice(source, from, from + length2 * length1)
 				else
-					expectSlice(array, from, until)
+					expectSlice(source, from, until)
 			}
 		}
 	protected override def expectApply[X](source :Array2[X], from2 :Int, from1 :Int, size :Int) :Seq[X] =

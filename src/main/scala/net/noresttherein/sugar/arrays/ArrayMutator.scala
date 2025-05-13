@@ -3,7 +3,7 @@ package net.noresttherein.sugar.arrays
 import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.collections.Mutability.Mutable
-import net.noresttherein.sugar.collections.{ArrayLikeSliceWrapper, IndexedIteratorFactory, Mutator, ValIterator, ValMutator}
+import net.noresttherein.sugar.collections.{ArrayLikeSliceWrapper, ExpandedSliceFactory, Mutator, ValIterator}
 import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.reflect.Specialized.MultiValue
 import net.noresttherein.sugar.vars.{ArrayLens, InOut}
@@ -70,8 +70,8 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
   * @define source array
   */
 @SerialVersionUID(Ver)
-object ArrayMutator extends IndexedIteratorFactory[Array, ArrayMutator] with ArrayLikeSliceWrapper[Array, ArrayMutator] {
-	protected final override def lengthOf[E](array :Array[E]) :Int = array.length
+object ArrayMutator extends ExpandedSliceFactory[Array, ArrayMutator] with ArrayLikeSliceWrapper[Array, ArrayMutator] {
+	protected final override def totalSizeOf[E](array :Array[E]) :Int = array.length
 	//	private[this] val empty = make(Array.emptyObjectArray.asInstanceOf[A[Nothing]])
 	@inline final override def wrap[E](array :Array[E]) :ArrayMutator[E] = apply(array)
 

@@ -1,7 +1,7 @@
 package net.noresttherein.sugar.arrays
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{AbstractCyclicIterator, AbstractIndexedIterator, AbstractReverseCyclicIterator, AbstractReverseIndexedIterator, ArrayIterableOnceOps, ArrayLikeSliceWrapper, CyclicIteratorFactory, IArrayLikeSlice, IndexedIterator, IndexedIteratorEquals, IndexedIteratorFactory, Mutability, ReverseCyclicIteratorFactory, ReverseIndexedIteratorFactory, ValIterator}
+import net.noresttherein.sugar.collections.{AbstractCyclicIterator, AbstractIndexedIterator, AbstractReverseCyclicIterator, AbstractReverseIndexedIterator, ArrayIterableOnceOps, ArrayLikeSliceWrapper, CyclicSliceFactory, IArrayLikeSlice, IndexedIterator, IndexedIteratorEquals, ExpandedSliceFactory, Mutability, ReverseCyclicSliceFactory, ReverseSliceFactory, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
@@ -12,7 +12,10 @@ import net.noresttherein.sugar.util.SingletonSerializationProxy
 
 
 
-private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T] //todo: manually specialize for AnyRef
+/** A mixin implementation trait for [[net.noresttherein.sugar.collections.IndexedIterator IndexedIterator]]
+  * implementations returning elements of an array.
+  */
+private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
 	extends ValIterator.Buffered[T] with ArrayIterableOnceOps[T, Iterator, Iterator[T]] with IndexedIteratorEquals[T]
 {
 	protected final override def source :AnyRef = unsafeArray
@@ -67,10 +70,10 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T] //todo: manua
   * @define coll array iterator
   */
 abstract class ArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] private[arrays]
-               (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
-	extends IndexedIteratorFactory[A, I] with ArrayLikeSliceWrapper[A, I]
+               (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
+	extends ExpandedSliceFactory[A, I] with ArrayLikeSliceWrapper[A, I]
 {
-	protected final override def lengthOf[E](array :A[E]) :Int = array.length
+	protected final override def totalSizeOf[E](array :A[E]) :Int = array.length
 //	private[this] val empty = make(Array.emptyObjectArray.asInstanceOf[A[Nothing]])
 	@inline final override def wrap[E](array :A[E]) :I[E] = apply(array)
 
@@ -84,12 +87,12 @@ abstract class ArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator
 
 @SerialVersionUID(Ver)
 private class ArrayIteratorFactory[-A[X] <: ArrayLike[X]]
-                                  (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+                                  (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], from :Int, until :Int) :ArrayIterator[T] =
 		((array :ArrayLike[_]) match {
-			case a :Array[AnyRef]  => new ArrayIterator(a, from, until, isImmutable)
+			case a :Array[AnyRef]  => new RefArrayIterator(a, from, until, isImmutable)
 			case a :Array[Int]     => new ArrayIterator(a, from, until, isImmutable)
 			case a :Array[Long]    => new ArrayIterator(a, from, until, isImmutable)
 			case a :Array[Double]  => new ArrayIterator(a, from, until, isImmutable)
@@ -99,14 +102,13 @@ private class ArrayIteratorFactory[-A[X] <: ArrayLike[X]]
 			case a :Array[Short]   => new ArrayIterator(a, from, until, isImmutable)
 			case a :Array[Boolean] => new ArrayIterator(a, from, until, isImmutable)
 			case null              => null_!(s"ArrayIterator.over(null, $from, $until)")
-//			case _                 => new ArrayIterator(array, from, until)
 		}).castParam[T]
 }
 
 
 @SerialVersionUID(Ver)
 private class GenericArrayIteratorFactory[-A[X] <: ArrayLike[X]]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], from :Int, until :Int) :ArrayIterator[T] =
@@ -116,15 +118,15 @@ private class GenericArrayIteratorFactory[-A[X] <: ArrayLike[X]]
 
 @SerialVersionUID(Ver)
 private class RefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
 {
 	protected final override def make[E](array :A[E], from :Int, until :Int) :ArrayIterator[E] =
 		(array :ArrayLike[_]) match {
+			case refs :Array[AnyRef] =>
+				new RefArrayIterator(refs, from, until, isImmutable).asInstanceOf[ArrayIterator[E]]
 			case null =>
 				illegal_!(toString + " cannot create an ArrayIterator because array is null.")
-			case refs :Array[AnyRef] if refs.getClass == classOf[Array[AnyRef]] =>
-				new ArrayIterator(refs, from, until, isImmutable).asInstanceOf[ArrayIterator[E]]
 			case _ =>
 				illegal_!(
 					toString + " cannot create an ArrayIterator for an array with element type different than AnyRef: "
@@ -132,6 +134,8 @@ private class RefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]]
 				)
 		}
 }
+
+
 
 
 //todo: make private, separately compiled.
@@ -158,10 +162,6 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
 
 	def reverse :ReverseArrayIterator[T] = new ReverseArrayIterator[T](array, first - 1, `last++` - 1)
 
-//	final override def hasNext :Boolean = first < `last++`
-//	override def head :T =
-//		if (first < `last++`) array(first)
-//		else noSuch_!("Index " + first + " exceeds the limit of " + `last++` + '.')
 	override def head :T =
 		if (hasNext) array(index)
 		else noSuch_!("Limit of " + limit + " reached for array " + errorString(array) + ".")
@@ -171,13 +171,6 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
 			noSuch_!("Limit of " + limit + " reached for array " + errorString(array) + ".")
 		array(advance())
 	}
-//	override def next() :T = {
-//		if (first >= `last++`)
-//			noSuch_!("Index " + first + " exceeds the limit of " + `last++` + ".")
-//		val res = array(first)
-//		first += 1
-//		res
-//	}
 
 	override def safeCopyToArray[U >: T](xs :Array[U], start :Int, len :Int) :Int = {
 		val copied = copyToArray(xs, start, len) //Delegate to ArrayIterableOnce.
@@ -191,6 +184,23 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
 }
 
 
+@SerialVersionUID(Ver)
+private[sugar] final class RefArrayIterator[+T <: AnyRef] private[sugar]
+                                           (array :Array[T], first :Int, `last++` :Int, isImmutable :Boolean = false)
+	extends ArrayIterator[T](array, first, `last++`, isImmutable)
+{
+	override def head :T =
+		if (hasNext) array(index)
+		else noSuch_!("Limit of " + limit + " reached for array " + errorString(array) + ".")
+
+	override def next() :T = {
+		if (!hasNext)
+			noSuch_!("Limit of " + limit + " reached for array " + errorString(array) + ".")
+		array(advance())
+	}
+}
+
+
 
 
 
@@ -199,21 +209,21 @@ private[sugar] sealed class ArrayIterator[@specialized(MultiValue) +T] private[s
   * @tparam A   The kind of arrays this factory iterates over.
   * @tparam I   The type of the created iterator, `I[X] <: Iterator[X]`
   * @define Coll `ReverseArrayIterator`
-  * @define coll reverse iterator
+  * @define coll reverse array iterator
   */
 private sealed abstract class ReverseArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] protected
-                              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseIndexedIteratorFactory[A, I]
+                              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
+	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseSliceFactory[A, I]
 
 
 @SerialVersionUID(Ver)
 private class ReverseArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ReverseArrayLikeIteratorFactory[A, ReverseArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], from :Int, until :Int) :ReverseArrayIterator[T] =
 		((array :ArrayLike[_]) match {
-			case a :Array[AnyRef]  => new ReverseArrayIterator(a, from - 1, until - 1)
+			case a :Array[AnyRef]  => new ReverseRefArrayIterator(a, from - 1, until - 1)
 			case a :Array[Int]     => new ReverseArrayIterator(a, from - 1, until - 1)
 			case a :Array[Long]    => new ReverseArrayIterator(a, from - 1, until - 1)
 			case a :Array[Double]  => new ReverseArrayIterator(a, from - 1, until - 1)
@@ -230,7 +240,7 @@ private class ReverseArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
 
 @SerialVersionUID(Ver)
 private class ReverseGenericArrayLikeIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ReverseArrayLikeIteratorFactory[A, ReverseArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], from :Int, until :Int) :ReverseArrayIterator[T] =
@@ -240,15 +250,15 @@ private class ReverseGenericArrayLikeIteratorFactory[-A[X] <: ArrayLike[X]] priv
 
 @SerialVersionUID(Ver)
 private class ReverseRefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ReverseArrayLikeIteratorFactory[A, ReverseArrayIterator](name, mutability, self)
 {
 	protected final override def make[E](array :A[E], from :Int, until :Int) :ReverseArrayIterator[E] =
 		(array :ArrayLike[_]) match {
+			case refs :Array[AnyRef] if refs.getClass == classOf[Array[AnyRef]] =>
+				new ReverseRefArrayIterator(refs, from - 1, until - 1).asInstanceOf[ReverseArrayIterator[E]]
 			case null =>
 				illegal_!(toString + " cannot create a ReverseArrayIterator because array is null.")
-			case refs :Array[AnyRef] if refs.getClass == classOf[Array[AnyRef]] =>
-				new ReverseArrayIterator(refs, from - 1, until - 1).asInstanceOf[ReverseArrayIterator[E]]
 			case _ =>
 				illegal_!(toString +
 					" cannot create a ReverseArrayIterator for an array with element type different than AnyRef: "
@@ -256,6 +266,7 @@ private class ReverseRefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]] priva
 				)
 		}
 }
+
 
 
 
@@ -322,29 +333,45 @@ private[sugar] sealed class ReverseArrayIterator[@specialized(MultiValue) +T] pr
 }
 
 
+@SerialVersionUID(Ver)
+private[sugar] final class ReverseRefArrayIterator[+T <: AnyRef] private[sugar](array :Array[T], end :Int, first :Int)
+	extends ReverseArrayIterator[T](array, end, first)
+{
+	override def head :T =
+		if (hasNext) array(index)
+		else noSuch_!("The index has reached the lower bound of " + limit + " for " + errorString(array) + ".")
+
+	override def next() :T = {
+		if (!hasNext)
+			noSuch_!("Index " + index + " has reached the lower bound for " + errorString(array) + ".")
+		array(advance())
+	}
+}
 
 
 
 
-/** A factory of iterators advancing over array slices, which wrap at the end of the array.
+
+
+/** A factory of iterators advancing over array slices which wrap at the end of the array.
   * @tparam A The kind of arrays this factory iterates over.
   * @tparam I The type of the created iterator, `I[X] <: Iterator[X]`
   * @define Coll `CyclicArrayIterator`
-  * @define coll cyclic iterator
+  * @define coll cyclic array iterator
   */ //consider: allowing to iterate multiple times over the array, treating the index modulo.
 private abstract class CyclicArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] protected
-                       (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with CyclicIteratorFactory[A, I]
+                       (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
+	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with CyclicSliceFactory[A, I]
 
 
 @SerialVersionUID(Ver)
 private sealed class CyclicArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                     (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+                     (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends CyclicArrayLikeIteratorFactory[A, CyclicArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], offset :Int, length :Int) :CyclicArrayIterator[T] =
 		((array :ArrayLike[_]) match {
-			case a :Array[AnyRef]       => new CyclicArrayIterator(a, offset, length)
+			case a :Array[AnyRef]       => new CyclicRefArrayIterator(a, offset, length)
 			case a :Array[Int]          => new CyclicArrayIterator(a, offset, length)
 			case a :Array[Long]         => new CyclicArrayIterator(a, offset, length)
 			case a :Array[Double]       => new CyclicArrayIterator(a, offset, length)
@@ -360,7 +387,7 @@ private sealed class CyclicArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[a
 
 @SerialVersionUID(Ver)
 private class CyclicGenericArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends CyclicArrayLikeIteratorFactory[A, CyclicArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](source :A[T], first :Int, size :Int) :CyclicArrayIterator[T] =
@@ -370,14 +397,14 @@ private class CyclicGenericArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[a
 
 @SerialVersionUID(Ver)
 private class CyclicRefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends CyclicArrayLikeIteratorFactory[A, CyclicArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](source :A[T], first :Int, size :Int) :CyclicArrayIterator[T] =
 		(source :ArrayLike[_]) match {
+			case refs :Array[AnyRef] => new CyclicRefArrayIterator(refs, first, size).asInstanceOf[CyclicArrayIterator[T]]
 			case null =>
 				illegal_!(toString + " cannot create a CyclicArrayIterator because array is null.")
-			case refs :Array[AnyRef] => new CyclicArrayIterator(refs, first, size).asInstanceOf[CyclicArrayIterator[T]]
 			case _ =>
 				illegal_!(toString +
 					" cannot create a CyclicArrayIterator for an array with element type different than AnyRef: "
@@ -449,6 +476,24 @@ private[sugar] sealed class CyclicArrayIterator[@specialized(MultiValue) +T] pri
 }
 
 
+@SerialVersionUID(Ver)
+private[sugar] final class CyclicRefArrayIterator[+T <: AnyRef] private[sugar] (array :Array[T], first :Int, size :Int)
+	extends CyclicArrayIterator[T](array, first, size)
+{
+	override def head :T =
+		if (remaining > 0) array(index)
+		else noSuch_!("Index has reached the limit of " + index + " in " + errorString(array) + ".")
+
+	override def next() :T = {
+		if (remaining <= 0)
+			noSuch_!("Index has reached the limit of " + index + " in " + errorString(array) + ".")
+		val res = array(index)
+		advance()
+		res
+	}
+}
+
+
 
 
 
@@ -458,21 +503,21 @@ private[sugar] sealed class CyclicArrayIterator[@specialized(MultiValue) +T] pri
   * @tparam A   The kind of arrays this factory iterates over.
   * @tparam I   The type of the created iterator, `I[X] <: Iterator[X]`
   * @define Coll `ReverseCyclicArrayIterator`
-  * @define coll reverse cyclic iterator
+  * @define coll reverse cyclic array iterator
   */
 private sealed abstract class ReverseCyclicArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] private[arrays]
-                              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseCyclicIteratorFactory[A, I]
+                              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
+	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseCyclicSliceFactory[A, I]
 
 
 @SerialVersionUID(Ver)
 private sealed class ReverseCyclicArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                     (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+                     (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ReverseCyclicArrayLikeIteratorFactory[A, ReverseCyclicArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], offset :Int, length :Int) :ReverseCyclicArrayIterator[T] =
 		((array :ArrayLike[_]) match {
-			case a :Array[AnyRef]       => new ReverseCyclicArrayIterator(a, offset, length)
+			case a :Array[AnyRef]       => new ReverseCyclicRefArrayIterator(a, offset, length)
 			case a :Array[Int]          => new ReverseCyclicArrayIterator(a, offset, length)
 			case a :Array[Long]         => new ReverseCyclicArrayIterator(a, offset, length)
 			case a :Array[Double]       => new ReverseCyclicArrayIterator(a, offset, length)
@@ -488,7 +533,7 @@ private sealed class ReverseCyclicArrayIteratorFactory[-A[X] <: ArrayLike[X]] pr
 
 @SerialVersionUID(Ver)
 private class ReverseCyclicGenericArrayIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ReverseArrayLikeIteratorFactory[A, ReverseCyclicArrayIterator](name, mutability, self)
 {
 	protected final override def make[E](array :A[E], offset :Int, length :Int) :ReverseCyclicArrayIterator[E] =
@@ -498,15 +543,15 @@ private class ReverseCyclicGenericArrayIteratorFactory[-A[X] <: ArrayLike[X]] pr
 
 @SerialVersionUID(Ver)
 private class ReverseCyclicRefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
-              (name :String, mutability :Mutability, self: => IndexedIteratorFactory[A, Iterator])
+              (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
 	extends ReverseCyclicArrayLikeIteratorFactory[A, ReverseCyclicArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](source :A[T], first :Int, size :Int) :ReverseCyclicArrayIterator[T] =
 		(source :ArrayLike[_]) match {
+			case refs :Array[AnyRef] =>
+				new ReverseCyclicRefArrayIterator(refs, first, size).asInstanceOf[ReverseCyclicArrayIterator[T]]
 			case null =>
 				illegal_!(toString + " cannot create a ReverseCyclicArrayIterator because array is null.")
-			case refs :Array[AnyRef] =>
-				new ReverseCyclicArrayIterator(refs, first, size).asInstanceOf[ReverseCyclicArrayIterator[T]]
 			case _ =>
 				illegal_!(toString +
 					" cannot create a ReverseCyclicArrayIterator for an array with element type different than AnyRef: "
@@ -593,4 +638,21 @@ private[sugar] sealed class ReverseCyclicArrayIterator[@specialized(MultiValue) 
 	override def clone = new ReverseCyclicArrayIterator(array, index, remaining)
 
 	override def toString :String = errorString(array) + ".reverseCyclicIterator@" + index + "|" + knownSize + "|"
+}
+
+
+@SerialVersionUID(Ver)
+private[sugar] sealed class ReverseCyclicRefArrayIterator[+T <: AnyRef] private[sugar]
+	                                                     (array :Array[T], first :Int, size :Int)
+	extends ReverseCyclicArrayIterator[T](array, first, size)
+{
+	override def head :T =
+		if (remaining > 0) array(index)
+		else noSuch_!("Index has reached the lower bound of " + index + ".")
+
+	override def next() :T = {
+		if (!hasNext)
+			noSuch_!("Index has reached the lower bound of " + index + ".")
+		array(advance())
+	}
 }

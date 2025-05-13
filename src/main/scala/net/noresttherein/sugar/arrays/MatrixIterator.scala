@@ -6,328 +6,96 @@ import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
 import net.noresttherein.sugar.collections.util.errorString
-import net.noresttherein.sugar.collections.{AbstractSugaredIterator, CountdownIterator, CountdownIteratorFactory, CyclicIteratorFactory, IndexedIterator, IndexedIteratorEquals, IndexedIteratorFactory, Mutability, ReverseCountdownIterator, ReverseCountdownIteratorFactory, ReverseCyclicIteratorFactory, ReverseIndexedIterator, ReverseIndexedIteratorFactory, ValIterator}
+import net.noresttherein.sugar.collections.{AbstractSugaredIterator, CountdownIterator, CyclicMatrixSliceFactory, IndexedIteratorEquals, MatrixSliceFactory, ReverseCountdownIterator, ReverseCyclicMatrixSliceFactory, ReverseMatrixSliceFactory, Slice2DFactory, ValIterator}
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.reflect.Specialized.MultiValue
-import net.noresttherein.sugar.typist.kinds.Pow
-import net.noresttherein.sugar.util.SingletonSerializationProxy
+import net.noresttherein.sugar.util.SerializableSingleton
 
 
 
 
-/** Interface of factories of iterators `I[X]` over two-dimensional arrays of kind `A[A[X]]`.
-  * @define Coll `Iterator`
-  * @define coll matrix iterator
-  * @define source array^2^
-  */
-trait ArrayLike2IteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]]
-	extends IndexedIteratorFactory[Pow[A]#_2 @uncheckedVariance, I]
+private sealed abstract class AbstractArrayLike2IteratorFactory[-A[X] <: ArrayLike[X]]
+                              (name :String, self: => Slice2DFactory[A, Iterator])
+	extends SerializableSingleton[Slice2DFactory[A @uncheckedVariance, Iterator]](name, self)
+	   with MatrixSliceFactory[A, Iterator]
 {
-	//Use of @uncheckedVariance is sound because the only non-covariant ArrayLike subtypes
-	// are MutableArray (we won't create an instance for that type) and `Array`.
-	def slice[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :I[E]
-	def apply[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :I[E]
+	protected override def outerLengthOf[E](source :A[E]) :Int = source.asInstanceOf[Array[E]].length
+	protected override def get[E](source :A[E], index :Int) :E = source.asInstanceOf[Array[E]](index)
 }
 
 
-
-
-/** The common interface of factories of iterators over two-dimensional arrays.
-  * Only the inner arrays in the range of the created iterator must be initialized,
-  * but they must all be of the same length. The exact semantics vary between implementations depending
-  * on the order of visiting the elements.
-  * Consult the documentation of the object/value of this type for more details.
-  * @see [[net.noresttherein.sugar.arrays.MatrixIterator$]]
-  * @see [[net.noresttherein.sugar.arrays.ReverseMatrixIterator$]]
-  * @see [[net.noresttherein.sugar.arrays.CyclicMatrixIterator$]]
-  * @see [[net.noresttherein.sugar.arrays.ReverseCyclicMatrixIterator$]]
-  * @tparam A the array kind over which iterators can be created.
-  * @tparam I the created iterator kind.
-  * @define Coll `Iterator`
-  * @define coll matrix iterator
-  * @define source array^2^
-  */
-abstract class AbstractMatrixIteratorFactory[-A[X] <: ArrayLike[X], +I[+X] <: Iterator[X]] private[arrays]
-	extends CountdownIteratorFactory[Pow[A]#_2 @uncheckedVariance, I] with ArrayLike2IteratorFactory[A, I]
-{
-	//Use of @uncheckedVariance is sound because the only non-covariant ArrayLike subtypes
-	// are MutableArray (we won't create an instance for that type) and `Array`.
-	protected def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :I[E] =
-		make(array, from2, from1, (until2 - from2) * array(from2).length + until1 - from1)
-
-	protected def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :I[E]
-
-	protected override def make[T](source :A[A[T]] @uncheckedVariance, first :Int, size :Int) :I[T] = {
-		val length2 = source.length
-		if (length2 == 0 | size <= 0)
-			empty(source)
-		else {
-			val length1 = source(0).length
-			if (length1 == 0)
-				empty(source)
-			else {
-				val from2 = first / length1
-				val from1 = first - from2 * length1
-				make(source, from2, from1, size)
-			}
-		}
-	}
-
-
-	/** Creates a $Coll iterating over `array` cell range `[array(from2)(from1), array(until2)(until1))`.
-	  * If either `from2` or `until2` are outside `[0, array.length]` range, they are clipped to that range.
-	  * Indices `from1` and `util1` are similarly clipped to range `[0, length]`, where `length`
-	  * is the length of the inner array. For both bounds (after clipping), `(i, length)` is equivalent to `(i + 1, 0)`.
-	  * @param array  A two-dimensional array with iterated elements.
-	  * @param from2  The lower bound on the indices in `array` with arrays containing the selected elements.
-	  * @param from1  The index of the first element of the iterator in `array(from2)`.
-	  * @param until2 The upper bound on the indices in `array` with arrays containing the selected elements.
-	  * @param until1 The index in `array(until2)` immediately following the last element of the iterator.
-	  */
-	@throws[NullPointerException]("if array is null, or from2 < array.length and array(from2 max 0) is null.")
-	override def slice[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :I[E] = {
-		val outerLength  = array.length
-		val clippedFrom2 = math.max(0, from2)
-		val clippedFrom1 = math.max(0, from1)
-		val clippedUntil2 = math.min(until2, outerLength)
-		if (clippedFrom2 >= outerLength | until2 < clippedFrom2 | clippedUntil2 == clippedFrom2 & until1 <= clippedFrom1)
-			empty(array)
-		else {
-			val innerLength  = array(clippedFrom2).length
-			if (innerLength == 0)
-				empty(array)
-			else if (from1 >= innerLength)
-				slice(array, clippedFrom2 + 1, 0, until2, until1)
-			else if (until1 <= 0 | clippedUntil2 == outerLength)
-				slice(array, clippedFrom2, clippedFrom1, clippedUntil2 - 1, innerLength)
-			else {
-				val clippedUntil1  = {
-					val until1LowBound = if (clippedUntil2 == clippedFrom2) clippedFrom1 else 0
-					math.max(until1LowBound, math.min(until1, innerLength))
-				}
-				if (clippedFrom2 == clippedUntil2 & clippedFrom1 == clippedUntil1)
-					empty(array)
-				else
-					make(array, clippedFrom2, clippedFrom1, clippedUntil2, clippedUntil1)
-			}
-		}
-	}
-
-	/** A $Coll iterating over elements `array.flatten.slice(from, until)`.
-	  * The bounds specify element indices in the linearized dimension, where the index of element `array(i)(j)`
-	  * is `(i * length1 + j)`, and `length1` is the length of the arrays in `array`.
-	  * If `length1 == 0`, then an empty $coll is returned immediately.
-	  * Index arguments are clipped to range `[0, array.length * length1]`.
-	  * The first element in the range is `array(from / length1)(from % length1)`,
-	  * and the last one is `array(until / length1)(until % length1)` (if `until % length1 != 0`),
-	  * or `array((until / length1) - 1)(length1 - 1)` (if `until % length1 == 0`).
-	  * All arrays with the iterated elements must be of length `length1`, but other arrays may be null.
-	  * @param array   A two-dimensional array with iterated elements.
-	  * @param length1 The length of all non-null inner arrays of `array.`
-	  * @param from    The index of the first element of the iterator, in a continuous range `[0, array.length * length1]`.
-	  * @param until   The index immediately following the last element of the iterator,
-	  *                in a continuous range `[0, array.length * length1]`.
-	  */
-	@throws[NullPointerException]("if array is null or from < until and until > 0 and from < array.length * length1 " +
-	                              "and array(max(from, 0) / length1) is null.")
-	def slice[E](length1 :Int, array :A[A[E]] @uncheckedVariance, from :Int, until :Int) :I[E] =
-		if (length1 == 0 | from > until | until <= 0)
-			empty(array)
-		else {
-			val length2 = array.length
-			val length  = length1.toLong * length2
-			val from0   = math.min(length, math.max(0, from).toLong).toInt
-			val until0  = math.min(length, math.max(from0, until)).toInt
-			val from2   = from0 / length1
-			val until2  = until0 / length1
-			val from1   = from0 - length1 * from2
-			val until1  = until0 - length1 * until2
-			if (from0 == until0)
-				empty(array)
-			else if (until1 == 0)
-				make(array, from2, from1, until2 - 1, length1)
-			else
-				make(array, from2, from1, until2, until1)
-		}
-
-
-	/** A $Coll iterating over elements `array.flatten.slice(from, until)`.
-	  * The bounds specify element indices in the linearized dimension, where the index of element `array(i)(j)`
-	  * is `(i * array(0).length + j)`.
-	  * Index arguments are clipped to range `[0, array.length * array(0).length]`.
-	  * The first element in the range is `array(from / length)(from % length)`,
-	  * and the last one is `array(until / length)(until % length)` (if `until % length != 0`),
-	  * or `array((until / length) - 1)(length - 1)` (if `until % length == 0`), where `length == array(0).length`.
-	  * If `length == 0`, an empty $coll is returned instead.
-	  * All arrays with the iterated elements must be of the same length, but other arrays may be null.
-	  * @param array   A two-dimensional array with iterated elements.
-	  * @param from    The index of the first element of the iterator
-	  *                in a continuous range `[0, array.length * array(0).length]`.
-	  * @param until   The index immediately following the last element of the iterator
-	  *                in a continuous range `[0, array.length * array(0).length]`.
-	  */
-	@throws[NullPointerException]("if from < until and either array is null or array(0) is null.")
-	override def slice[E](array :A[A[E]] @uncheckedVariance, from :Int, until :Int) :I[E] =
-		if (from >= until | until < 0 | array.length == 0) Empty
-		else slice(array(0).length, array, from, until)
-
-
-	/** A $Coll iterating over at most `size` elements of `array`, starting with `array(from2)(from1)`.
-	  *   - If `from2 < 0` it is clipped to zero; if `from2 >= array.length`, an empty $coll is returned immediately.
-	  *   - If `from1 < 0`, it is clipped to zero; if `from2 >= array(from2).length`, it is set to zero,
-	  *     and `from2` is increased by one.
-	  *   - All inner arrays must have the same length.
-	  *   - `array.length * array(0).length` must be not greater than `Int.MaxValue`.
-	  * @param array A two-dimensional array with iterated elements.
-	  * @param from2 The index in `array` of the inner array with the first element of the iterator.
-	  * @param from1 The index in `array(from2)` of the first element of the iterator.
-	  * @param size  The maximum size of the iterator.
-	  */
-	override def apply[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :I[E] = {
-		val outerLength  = array.length
-		if (outerLength == 0 | from2 >= outerLength | size <= 0)
-			empty(array)
-		else if (from2 < 0)
-			apply(array, 0, 0, size)
-		else {
-			val innerLength  = array(from2).length
-			if (from1 >= innerLength)
-				apply(array, from2 + 1, 0, size)
-			else {
-				val clipped1    = math.max(0, from1)
-				val from        = from2.toLong * innerLength + clipped1
-				val remaining   = outerLength.toLong * innerLength - from
-				val clippedSize = math.min(remaining, size).toInt
-				if (clippedSize == 0L)
-					empty(array)
-				else
-					make(array, from2, clipped1, clippedSize)
-			}
-		}
-	}
-
-	/** A $Coll iterating over at most `size` elements of `array`,
-	  * starting with `array(from / length1)(from % length1)`.
-	  * @param length1 The length of the inner arrays in `array`.
-	  * @param array   A two-dimensional array with the iterated elements.
-	  * @param from    A valid index of the first element of the iterator
-	  *                in a continuous range `[0, array.length*length1]`.
-	  * @param size    The maximum number of iterated elements.
-	  */
-	@throws[NullPointerException]("if array is null.")
-	def apply[E](length1 :Int, array :A[A[E]] @uncheckedVariance, from :Int, size :Int) :I[E] =
-		if (length1 <= 0 | size <= 0)
-			empty(array)
-		else {
-			val from0 = math.max(from, -1)
-			val from2 = from0 / length1
-			val from1 = from0 - from2 * length1
-			apply(array, from2, from1, size)
-		}
-
-	/** A $Coll iterating over at most `size` elements of `array`,
-	  * starting with `array(from / array(0).length)(from % array(0).length)`.
-	  * @param array   A two-dimensional array with the iterated elements.
-	  * @param from    A valid index of the first element of the iterator
-	  *                in a continuous range `[0, array.length*length1]`.
-	  * @param size    The maximum number of iterated elements.
-	  */
-	@throws[NullPointerException]("if array is null or array(0) is null.")
-	@throws[IndexOutOfBoundsException]("if from < 0 or from > array.length * length1.")
-	override def apply[E](array :A[A[E]] @uncheckedVariance, from :Int, size :Int) :I[E] =
-		if (array.length == 0) empty(array)
-		else apply(array(0).length, array, from, size)
-
-	override def apply[E](array :A[A[E]] @uncheckedVariance) :I[E] = {
-		val len2 = array.length
-		if (len2 == 0)
-			Empty
-		else
-			make(array, 0, 0, len2 * array(0).length)
-	}
-
-	protected def empty[E](array :A[A[E]] @uncheckedVariance) :I[E] = Empty
-	protected def empty[E] :I[E] = Empty
-
-	protected val Empty :I[Nothing]
-
-	protected final override def lengthOf[E](array :A[A[E]] @uncheckedVariance) :Int = {
-		val len2 = array.length
-		if (len2 == 0) 0
-		else array(0).length * len2
-	}
-}
-
-
+private sealed abstract class AbstractMatrixIteratorFactory[-A[X] <: ArrayLike[X]]
+                              (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	   with MatrixSliceFactory[A, MatrixIterator]
 
 
 @SerialVersionUID(Ver)
 private class MatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                                   (name :String, self: => IndexedIteratorFactory[Pow[A]#_2, Iterator])
-	extends AbstractMatrixIteratorFactory[A, MatrixIterator]
+                                   (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractMatrixIteratorFactory[A](name, self)
 {
-	protected final override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
+	protected final override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:MatrixIterator[E] =
-		((array :ArrayLike[_]) match {
-			case a :Array[Array[AnyRef]]  => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Int]]     => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Long]]    => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Double]]  => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Char]]    => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Byte]]    => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Float]]   => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Short]]   => new MatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Boolean]] => new MatrixIterator(a, from2, from1, size)
-			case null                     => null_!("Null array passed to MatrixIterator")
+		((source :ArrayLike[_]) match {
+			case a :Array[Array[AnyRef]]       => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Int]]          => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Long]]         => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Double]]       => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Char]]         => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Byte]]         => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Float]]        => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Short]]        => new MatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Boolean]]      => new MatrixIterator(a, from2, from1, size)
+			case null                          => null_!("Null array passed to MatrixIterator")
+			//Handle RefArray[ArrayLike[E]]
+			case a :Array[Array[E]] @unchecked => new MatrixIterator(a, from2, from1, size)
+//			case a :Array[RefArrayLike[E]] @unchecked => new RefMatrixIterator(a, from2, from1, size)
 		}).castParam[E]
 
 	protected override val Empty :MatrixIterator[Nothing] = {
-		//MatrixIterator assumes array(idx2) exists and is not empty.
+		//MatrixIterator assumes array(idx2) exists.
 		val array = new Array[Array[Nothing]](1)
 		array(0)  = new Array[Nothing](0)
 		new MatrixIterator[Nothing](array, 0, 0, 0)
 	}
-
-	override def toString :String = name
-
-	//Our own writeReplace allows deserialization even if the actual class used for the public factory object changes.
-	private def writeReplace :Any = new SingletonSerializationProxy(self)
 }
 
 
 @SerialVersionUID(Ver)
-private class RefArrayLike2IteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
-              (override val toString :String, self: => IndexedIteratorFactory[Pow[A]#_2, Iterator])
-	extends AbstractMatrixIteratorFactory[A, MatrixIterator]
+private class RefArrayLikeMatrixIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
+              (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractMatrixIteratorFactory[A](name, self)
 {
-	protected final override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
+	protected final override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:MatrixIterator[E] =
-		(array :ArrayLike[_]) match {
+		(source :ArrayLike[_]) match {
+			case _ :Array[AnyRef] => //todo: manually specialize for RefArray
+				new MatrixIterator(source.castParam[Array[E]], from2, from1, size)
+//				new RefMatrixIterator(source.castParam[RefArray[E]], from2, from1, size)
 			case null => null_!("Cannot create a RefArray2Iterator for a null array.")
-			case refs :Array[Array[AnyRef]] =>
-				new MatrixIterator(refs, from2, from1, size).asInstanceOf[MatrixIterator[E]]
 			case _ =>
-				illegal_!("Cannot create a RefArray2Iterator for non RefArray: " + errorString(array) + ".")
+				illegal_!("Cannot create a RefArray2Iterator for non Array[RefArray[T]]: " + errorString(source) + ".")
 		}
 	protected override val Empty :MatrixIterator[Nothing] = {
 		val array = new Array[Array[Any]](1)
 		array(0)  = new Array[Any](0)
 		new MatrixIterator(array, 0, 0, 0).asInstanceOf[MatrixIterator[Nothing]]
 	}
-	private def writeReplace :Any = new SingletonSerializationProxy(self)
 }
 
 
 /** An iterator over a two-dimensional array.
   * Outer array may be of any size; all inner arrays must be of the same, non-zero, size.
+  * Requires `array(idx2)` to exist even if `countdown == 0`.
   * @param array  an array, whose indices `[from2, until2]` (upper index may be exclusive, if `until1 == 0`)
   *               all contain arrays of the same length.
   * @param idx2   the index of the current inner array.
   * @param idx1   the index of the `head` element in `array(idx2)`.
   */
 private[sugar] class MatrixIterator[@specialized(MultiValue) +E]
-                                   (array :Array[Array[E]], private[this] var idx2 :Int, private[this] var idx1 :Int,
+                                   (array :ArrayLike[Array[E]], private[this] var idx2 :Int, private[this] var idx1 :Int,
                                     private[this] var countdown :Int)
 	extends AbstractSugaredIterator[E] with ValIterator.Buffered[E]
 	   with CountdownIterator[E] with IndexedIteratorEquals[E]
@@ -335,13 +103,17 @@ private[sugar] class MatrixIterator[@specialized(MultiValue) +E]
 	private[this] final val Dim1 = array(idx2).length
 	private[this] var curr :Array[E] = array(idx2)
 	//Return a MatrixIterator so that method call is specialized and sets the specialized curr field.
-	private def setCurr() :MatrixIterator[E] = { curr = array(idx2); this }
+	protected def setCurr() :MatrixIterator[E] = { curr = array(idx2); this }
 
-	protected final override def source :Array[_] = array
+	protected final override def source :ArrayLike[ArrayLike[E]] = array
 	protected final override def underlyingSize :Int = array.length * Dim1
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value
 	protected final override def remaining_--() :Unit = countdown -= 1
+	protected final def index2 :Int = idx2
+	protected final def index2_=(value :Int) :Unit = idx2 = value
+	protected final def index1 :Int = idx1
+	protected final def index1_=(value :Int) :Unit = idx1 = value
 	protected final override def index :Int = idx2 * Dim1 + idx1
 	protected final override def index_=(value :Int) :Unit = {
 		val oldIdx2 = idx2
@@ -372,7 +144,7 @@ private[sugar] class MatrixIterator[@specialized(MultiValue) +E]
 			noSuch_!("Iterator.empty.next()")
 		val res = curr(idx1)
 		idx1 += 1
-		countdown -= 1 //We could u++pdate it only in the if branch, but that would throw off knownSize
+		countdown -= 1
 		if (idx1 >= Dim1 & countdown > 0) {
 			idx1  = 0
 			idx2 += 1
@@ -398,7 +170,7 @@ private[sugar] class MatrixIterator[@specialized(MultiValue) +E]
 	}
 */
 	override def head :E = {
-		if (remaining <= 0)
+		if (countdown <= 0)
 			noSuch_!("Iterator.empty.head")
 		curr(idx1)
 	}
@@ -438,10 +210,15 @@ private[sugar] class MatrixIterator[@specialized(MultiValue) +E]
 				val n = math.min(max - copied, Dim1 - idx1)
 				ArrayLike.copy(a, idx1, xs, start + copied, n)
 				copied += n
-				idx1  = if (idx1 + n < Dim1) idx1 + n else 0
-				idx2 += 1
+				idx1 += n
+				if (idx1 == Dim1) {
+					idx1 = 0
+					idx2 += 1
+				}
 			}
 			countdown -= copied
+			if (idx2 == array.length) //Implies countdown == 0
+				idx2 = array.length - 1
 			copied
 		}
 
@@ -456,61 +233,76 @@ private[sugar] class MatrixIterator[@specialized(MultiValue) +E]
 }
 
 
-
-
-private final class ReverseMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                    (override val toString :String, self: => IndexedIteratorFactory[Pow[A]#_2, Iterator])
-	extends AbstractMatrixIteratorFactory[A, ReverseMatrixIterator]
-	   with ReverseCountdownIteratorFactory[Pow[A]#_2 @uncheckedVariance, ReverseMatrixIterator]
+/** A variant of `MatrixIterator` manually specialized for reference arrays. */
+//This will require implementing in Java in order to access fields directly in order to be efficient.
+/*
+private[sugar] class RefMatrixIterator[+E]
+                     (array :ArrayLike[RefArrayLike[E]], idx2 :Int, idx1 :Int, size :Int)
+	extends MatrixIterator[E](array.castParam[Array[E]], idx2, idx1, size)
 {
-	protected override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int)
-			:ReverseMatrixIterator[E] =
-	{
-		val innerLength = array(from2).length
-		make(array, until2, until1 - 1, (until2 - from2) * innerLength - from1 + until1)
+	private[this] var curr = array(idx2).asInstanceOf[Array[AnyRef]]
+	protected override def setCurr() :MatrixIterator[E] = {
+		val array = source
+		curr = array(index2).asInstanceOf[Array[AnyRef]]
+		this
 	}
 
-	protected override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
+	override def next() :E = {
+		//We hope for the getters/setters to be inlined.
+		val rem = remaining
+		if (rem <= 0)
+			noSuch_!("Iterator.empty.next()")
+		val idx2 = index2
+		val idx1 = index1
+		val res = curr(idx1)
+		index2 = idx2 + 1
+		remaining = rem - 1
+		if (idx1 >= curr.length & rem > 1) {
+			index1 = 0
+			index2 = idx2 + 1
+			curr = source(idx2).asInstanceOf[Array[AnyRef]]
+		}
+		res.asInstanceOf[E]
+	}
+	override def head :E = {
+		if (remaining <= 0)
+			noSuch_!("Iterator.empty.head")
+		curr(index1)
+	}
+}
+*/
+
+
+
+
+private sealed abstract class AbstractReverseMatrixIteratorFactory[-A[X] <: ArrayLike[X]]
+                              (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	   with ReverseMatrixSliceFactory[A, ReverseMatrixIterator]
+
+
+@SerialVersionUID(Ver)
+private final class ReverseMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
+                    (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractReverseMatrixIteratorFactory[A](name, self)
+{
+	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:ReverseMatrixIterator[E] =
 	{   //ReverseMatrixIterator expects to get the first element to the constructor.
-		((array :ArrayLike[_]) match {
-			case a :Array[Array[AnyRef]]  => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Int]]     => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Long]]    => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Double]]  => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Char]]    => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Byte]]    => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Float]]   => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Short]]   => new ReverseMatrixIterator(a, from2, from1, size)
-			case a :Array[Array[Boolean]] => new ReverseMatrixIterator(a, from2, from1, size)
-			case null                     => null_!("Null array passed to " + this)
+		((source :ArrayLike[_]) match {
+			case a :Array[Array[AnyRef]]       => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Int]]          => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Long]]         => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Double]]       => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Char]]         => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Byte]]         => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Float]]        => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Short]]        => new ReverseMatrixIterator(a, from2, from1, size)
+			case a :Array[Array[Boolean]]      => new ReverseMatrixIterator(a, from2, from1, size)
+			case null                          => null_!("Null array passed to " + this)
+			case a :Array[Array[E]] @unchecked => new ReverseMatrixIterator(a, from2, from1, size)
 		}).castParam[E]
 	}
-
-	override def apply[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
-			:ReverseMatrixIterator[E] =
-		if (from2 < 0 | size <= 0)
-			empty(array)
-		else {
-			val outerLength  = array.length
-			if (outerLength == 0)
-				empty(array)
-			else if (from2 >= outerLength) {
-				val innerLength = array(outerLength - 1).length
-				make(array, outerLength - 1, innerLength - 1, math.min(outerLength.toLong * innerLength, size).toInt)
-			} else if (from1 < 0)
-				if (from2 == 0)
-					empty(array)
-				else
-					apply(array, from2 - 1, array(from2 - 1).length, size)
-			else {
-				val innerLength = array(from2).length
-				val clipped1    = math.min(from1, innerLength - 1)
-				val from        = from2.toLong * innerLength + clipped1
-				val clippedSize = math.min(from + 1, size)
-				make(array, from2, clipped1, clippedSize.toInt)
-			}
-		}
 
 	protected override val Empty :ReverseMatrixIterator[Nothing] = {
 		//ReverseMatrixIterator assumes array(idx2) exists and is not empty.
@@ -518,7 +310,6 @@ private final class ReverseMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[
 		array(0)  = new Array[Nothing](0)
 		new ReverseMatrixIterator(array, 0, 0, 0)
 	}
-	private def writeReplace :Any = new SingletonSerializationProxy(self)
 }
 
 
@@ -532,7 +323,7 @@ private final class ReverseMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[
   * @param idx1     the index of the `head` element in `array(idx2)`.
   */
 private[sugar] class ReverseMatrixIterator[@specialized(MultiValue) +E]
-                                          (array :Array[Array[E]],
+                                          (array :ArrayLike[Array[E]],
                                            private[this] var idx2 :Int, private[this] var idx1 :Int,
                                            private[this] var countdown :Int)
 	extends AbstractSugaredIterator[E] with ValIterator.Buffered[E]
@@ -542,7 +333,7 @@ private[sugar] class ReverseMatrixIterator[@specialized(MultiValue) +E]
 	private[this] var curr = array(idx2)
 	private def setCurr() :ReverseMatrixIterator[E] = { curr = array(idx2); this }
 
-	protected final override def source :Array2[_] = array
+	protected final override def source :Array[_] = array.asArray
 	protected final override def underlyingSize :Int = array.length * Dim1
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value
@@ -633,135 +424,20 @@ private[sugar] class ReverseMatrixIterator[@specialized(MultiValue) +E]
 
 
 
-
-private sealed abstract class AbstractCyclicMatrixIteratorFactory
-                              [-A[X] <: ArrayLike[X], +I[+X] <: Iterator[X]] private[arrays]
-                              (override val toString :String, self: => IndexedIteratorFactory[Pow[A]#_2, Iterator])
-	extends AbstractMatrixIteratorFactory[A, I]
-{
-	/** A $coll over a slice of `array`, starting at indices `from2` and `from1` in the outer and inner array,
-	  * respectively, and ending immediately before indices `(until2, until1)`. Indices in the outer array
-	  * - `from2` and `until2` - are always treated modulo the length of the array. Indices in the inner arrays
-	  * - `from1` and `until1` - are instead clipped to range `[0, length]`, where `length` is the length
-	  * of all element arrays in `array`. If `from1` or `until1` equals `length` (after clipping), it is set to zero,
-	  * an `from2`/`until2` is increased by one modulo `array.length`. If `until2 * length + until1` is less than
-	  * `from2 * length + from1` after all these operations, the iteration will wrap at the end of the array
-	  * and continue from the beginning (or end, in case of `ReverseCyclicMatrixIterator`). If `from2 == until2`,
-	  * and `from1` equals `until1` after clipping to range `[0, length]`, the iterator is empty. Otherwise,
-	  * if `from2` equals `until2` modulo `array.length`, the iterator will return all elements in the array.
-	  */
-	override def slice[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :I[E] = {
-		val length2 = array.length
-		if (length2 == 0)
-			empty(array)
-		else {
-			//We need to treat the negative case separately because the expression would overflow for positive values.
-			val length2L         = length2.toLong
-			val length2Multiple  = length2L << 32 //A multiple greater than Int.MaxValue * 2 to assure positive signs.
-			var clippedFrom2     = (length2Multiple + from2) % length2L
-			var clippedUntil2    = (length2Multiple + until2) % length2L
-			var clippedFrom1     = math.max(from1, 0)
-			var clippedUntil1    = math.max(until1, 0)
-			val length1          = array(clippedFrom2.toInt).length
-			var from2Adjustment  = 0L
-			if (from1 >= length1) {
-				clippedFrom2 = (clippedFrom2 + 1) % length2L
-				clippedFrom1 = 0
-				from2Adjustment = 1L
-			}
-			var until2Adjustment = 0L
-			if (until1 >= length1) {
-				clippedUntil2 = (clippedUntil2 + 1) % length2L
-				clippedUntil1 = 0
-				until2Adjustment = 1L
-			}
-			if (length1 == 0 || from2 + from2Adjustment == until2 + until2Adjustment && clippedFrom1 == clippedUntil1)
-				empty(array)
-			else
-				make(array, clippedFrom2.toInt, clippedFrom1, clippedUntil2.toInt, clippedUntil1)
-		}
-	}
-	override def slice[E](length1 :Int, array :A[A[E]] @uncheckedVariance, from :Int, until :Int) :I[E] =
-		if (length1 == 0 || from == until)
-			empty(array)
-		else {
-			val length2 = array.length
-			val length  = length2 * length1
-			var from0   = from % length
-			if (from0 < 0)
-				from0 = length + from0
-			var until0 = until % length
-			if (until0 < 0)
-				until0 = length + until0
-			val from2  = from0 / length1
-			val from1  = from0 - from2 * length1
-			var until2 = (until0 - 1) / length1
-			val until1 = until0 - until2 * length1
-			if (until2 < 0)
-				until2 += length2
-			make(array, from2, from1, until2, until1)
-		}
-
-	override def apply[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :I[E] = {
-		val outerLength = array.length
-		if (outerLength == 0 || size <= 0)
-			empty(array)
-		else {
-			val clippedFrom2 =
-				if (from2 >= 0) from2 % outerLength
-				else (outerLength + from2 % outerLength) % outerLength
-			val innerLength  = array(clippedFrom2).length
-			if (innerLength == 0)
-				empty(array)
-			else if (from1 >= innerLength)
-				apply(array, clippedFrom2 + 1, 0, size)
-			else {
-				val totalLength  = outerLength * innerLength
-				val clippedSize  = math.max(0, math.min(size, totalLength))
-				make(array, clippedFrom2, math.max(0, from1), clippedSize)
-			}
-		}
-	}
-	override def apply[E](length1 :Int, array :A[A[E]] @uncheckedVariance, from :Int, size :Int) :I[E] = {
-		val length2 = array.length
-		if (length2 == 0 | length1 <= 0 | size <= 0)
-			empty(array)
-		else {
-			val totalLength = length2.toLong * length1
-			val from0 =
-				if (from < 0) totalLength + from % totalLength
-				else from % totalLength
-			val from2 = from0 / length1
-			val from1 = from0 - from2 * length1
-			apply(array, from2.toInt, from1.toInt, size)
-		}
-	}
-
-	private def writeReplace :Any = new SingletonSerializationProxy(self)
-}
+private sealed abstract class AbstractCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
+                              (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	   with CyclicMatrixSliceFactory[A, CyclicMatrixIterator]
 
 
+@SerialVersionUID(Ver)
 private final class CyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                    (name :String, self: => IndexedIteratorFactory[Pow[A]#_2, Iterator])
-	extends AbstractCyclicMatrixIteratorFactory[A, CyclicMatrixIterator](name, self)
-	   with CyclicIteratorFactory[Pow[A]#_2 @uncheckedVariance, CyclicMatrixIterator]
+                    (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractCyclicMatrixIteratorFactory[A](name, self)
 {
-	protected override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int)
+	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:CyclicMatrixIterator[E] =
-	{
-		val outerLength = array.length.toLong
-		val innerLength = array(from2).length.toLong
-		val from = from2 * innerLength + from1
-		val until = until2 * innerLength + until1
-		if (from < until)
-			make(array, from2, from1, (until - from).toInt)
-		else
-			make(array, from2, from1, (outerLength * innerLength + until - from).toInt)
-	}
-
-	protected override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
-			:CyclicMatrixIterator[E] =
-		((array :ArrayLike[_]) match {
+		((source :ArrayLike[_]) match {
 			case a :Array[Array[AnyRef]]  => new CyclicMatrixIterator(a, from2, from1, size)
 			case a :Array[Array[Int]]     => new CyclicMatrixIterator(a, from2, from1, size)
 			case a :Array[Array[Long]]    => new CyclicMatrixIterator(a, from2, from1, size)
@@ -782,6 +458,8 @@ private final class CyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[a
 }
 
 
+
+
 /** An iterator over a two-dimensional array, wrapping at array end if its offset plus size exceeds length of the former.
   * Outer array may be of any size; all inner arrays must be of the same, non-zero, size.
   * @param array  an array, whose indices `[from2, until2]` (upper index may be exclusive, if `until1 == 0`)
@@ -790,7 +468,7 @@ private final class CyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[a
   * @param idx1   the index of the `head` element in `array(idx2)`.
   */
 private[sugar] class CyclicMatrixIterator[@specialized(MultiValue) +E]
-                                         (array :Array[Array[E]],
+                                         (array :ArrayLike[Array[E]],
                                           private[this] var idx2 :Int, private[this] var idx1 :Int,
                                           private[this] var countdown :Int)
 	extends AbstractSugaredIterator[E] with ValIterator.Buffered[E]
@@ -800,7 +478,7 @@ private[sugar] class CyclicMatrixIterator[@specialized(MultiValue) +E]
 	private[this] var curr = array(idx2)
 	private def setCurr() :CyclicMatrixIterator[E] = { curr = array(idx2); this }
 
-	protected final override def source :Array2[_] = array
+	protected final override def source :Array[_] = array.asArray
 	protected final override def underlyingSize :Int = array.length * Dim1
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value
@@ -886,32 +564,20 @@ private[sugar] class CyclicMatrixIterator[@specialized(MultiValue) +E]
 
 
 
-private final class ReverseCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                    (name :String, self: => IndexedIteratorFactory[Pow[A]#_2, Iterator])
-	extends AbstractCyclicMatrixIteratorFactory[A, ReverseCyclicMatrixIterator](name, self)
-	   with ReverseCyclicIteratorFactory[Pow[A]#_2 @uncheckedVariance, ReverseCyclicMatrixIterator]
-{
-	protected override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int)
-			:ReverseCyclicMatrixIterator[E] =
-	{
-		val outerLength = array.length
-		val innerLength = array(from2).length.toLong
-		val from = from2 * innerLength + from1
-		val until = until2 * innerLength + until1
-		val size =
-			if (from < until) (until - from).toInt
-			else (outerLength * innerLength + until - from).toInt
-		if (until1 > 0)
-			make(array, until2, until1 - 1, size)
-		else if (until2 == 0)
-			make(array, outerLength - 1, (innerLength - 1).toInt, size)
-		else
-			make(array, until2 - 1, (innerLength - 1).toInt, size)
-	}
+private sealed abstract class AbstractReverseCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
+                              (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	  with ReverseCyclicMatrixSliceFactory[A, ReverseCyclicMatrixIterator]
 
-	protected override def make[E](array :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
+
+@SerialVersionUID(Ver)
+private final class ReverseCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
+                    (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractReverseCyclicMatrixIteratorFactory[A](name, self)
+{
+	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:ReverseCyclicMatrixIterator[E] =
-		((array :ArrayLike[_]) match {
+		((source :ArrayLike[_]) match {
 			case a :Array[Array[AnyRef]]  => new ReverseCyclicMatrixIterator(a, from2, from1, size)
 			case a :Array[Array[Int]]     => new ReverseCyclicMatrixIterator(a, from2, from1, size)
 			case a :Array[Array[Long]]    => new ReverseCyclicMatrixIterator(a, from2, from1, size)
@@ -932,6 +598,8 @@ private final class ReverseCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] pr
 }
 
 
+
+
 /** A reverse iterator over a two-dimensional array, wrapping back at its beginning if its offset plus size
   *  exceeds length of the former. Outer array may be of any size; all inner arrays must be of the same, non zero, size.
   * @param array  an array, whose indices `[from2, until2]` (upper index may be exclusive, if `until1 == 0`)
@@ -940,7 +608,7 @@ private final class ReverseCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] pr
   * @param idx1   the index of the `head` element in `array(idx2)`.
   */
 private[sugar] class ReverseCyclicMatrixIterator[@specialized(MultiValue) +E]
-                     (array :Array[Array[E]], private[this] var idx2 :Int, private[this] var idx1 :Int,
+                     (array :ArrayLike[Array[E]], private[this] var idx2 :Int, private[this] var idx1 :Int,
                       private[this] var countdown :Int)
 	extends AbstractIterator[E] with ValIterator.Buffered[E]
 	   with ReverseCountdownIterator[E] with IndexedIteratorEquals[E]
@@ -949,7 +617,7 @@ private[sugar] class ReverseCyclicMatrixIterator[@specialized(MultiValue) +E]
 	private[this] var curr = array(idx2)
 	private def setCurr() :ReverseCyclicMatrixIterator[E] = { curr = array(idx2); this }
 
-	protected final override def source :Array2[_] = array
+	protected final override def source :Array[_] = array.asArray
 	protected final override def underlyingSize :Int = array.length * Dim1
 	protected final override def remaining :Int = countdown
 	protected final override def remaining_=(value :Int) :Unit = countdown = value

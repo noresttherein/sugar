@@ -3,7 +3,6 @@ package net.noresttherein.sugar.collections
 import scala.collection.{AbstractIterator, BufferedIterator, mutable}
 
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
-import net.noresttherein.sugar.funny.generic
 
 
 
@@ -74,8 +73,8 @@ private sealed class IndexedSeqMutator[@specialized(Int, Long, Double, AnyRef) T
 
 
 @SerialVersionUID(Ver)
-private object IndexedSeqMutator extends IndexedIteratorFactory[mutable.IndexedSeq, IndexedSeqMutator] {
-	protected override def lengthOf[T](source :mutable.IndexedSeq[T]) :Int = source.length
+private object IndexedSeqMutator extends ExpandedSliceFactory[mutable.IndexedSeq, IndexedSeqMutator] {
+	protected override def totalSizeOf[T](source :mutable.IndexedSeq[T]) :Int = source.length
 	protected override def make[T](source :mutable.IndexedSeq[T], from :Int, until :Int) :IndexedSeqMutator[T] =
 		new IndexedSeqMutator(source, from, until)
 }

@@ -17,7 +17,6 @@ trait ReverseIndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]] extends Ind
 }
 
 
-//todo: move it to the file with ArrayIteratorSpec
 object ReverseArrayIteratorSpec
 	extends ArrayIteratorProps[BufferedIterator]("ReverseArrayIterator", ReverseArrayIterator)
 	   with ReverseIndexedIteratorProps[Array, BufferedIterator]

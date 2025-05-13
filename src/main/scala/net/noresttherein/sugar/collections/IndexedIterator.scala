@@ -261,7 +261,9 @@ trait CountdownIterator[+E] extends IndexedIterator[E] {
 	protected override def limit_=(value :Int) :Unit = remaining = value - index
 	protected def remaining_--() :Unit = remaining -= 1
 
-	/** Increases `index` by one and decreases `remaining` by one.  */
+	/** Increases `index` by one and decreases `remaining` by one.
+	  * @return the index before increment.
+	  */
 	protected override def advance() :Int = {
 		val idx = index
 		index   = idx + 1
@@ -269,6 +271,7 @@ trait CountdownIterator[+E] extends IndexedIterator[E] {
 		idx
 	}
 	final override def knownSize :Int = remaining
+
 	override def hasNext :Boolean = remaining > 0
 
 	protected def maxSize :Int = rangeEnd - index
@@ -768,316 +771,6 @@ trait IndexedIteratorEquals[+E] extends IndexedIterator[E] with Equals {
 
 
 
-
-/** $factoryInfo
-  * @tparam S The collection-like type over which the iterators produced by this factory iterate.
-  * @tparam I The type of iterators produced by this factory.
-  * @define source collection
-  * @define coll  iterator
-  * @define Coll `IndexedIterator`
-  * @define factoryInfo A factory creating ${coll}s iterating over ${input}s.
-  *                     The ${coll}s rely on the random indexing of the underlying ${input}s.
-  */
-trait IndexedIteratorFactory[-S[_], +I[_]] extends SliceFactory[S, I] {
-	/** Length of the argument $source used to determine the upper index bound. */
-	protected def lengthOf[T](source :S[T]) :Int
-
-	/** Build a $coll which will return elements from range `[from, until)` in the argument $source. */
-	protected def make[T](source :S[T], from :Int, until :Int) :I[T]
-
-	/** An iterator returning the entirety of the argument $source, starting from the beginning. */
-	def apply[T](source :S[T]) :I[T] =
-		make(source, 0, lengthOf(source))
-
-	/** A $coll returning elements `source(first), source(first + 1), ..., source(source.length - 1)`.
-	  * Negative first index is treated like zero, and indices greater than `source.length` result in an empty iterator.
-	  */
-	def from[T](source :S[T], first :Int) :I[T] = apply(source, first, Int.MaxValue)
-
-	/** A $coll returning elements of `source`, starting with index `first`, and continuing until the end
-	  * of the $source or until `length` elements are returned - whatever comes sooner.
-	  * Negative `length` is equivalent to zero.
-	  */
-	def apply[T](source :S[T], first :Int, length :Int) :I[T] = {
-		val len   = lengthOf(source)
-		val from  = math.max(0, math.min(len, first))
-		val until = from + math.min(len - from, math.max(length, 0))
-		make(source, from, until)
-	}
-
-	/** Returns elements `seq(from), seq(from + 1), ..., seq(until - 1)` of the given sequence.
-	  * If any of indices in the `[from, until)` range are negative or greater than the sequence's length,
-	  * they are ignored.
-	  */
-	override def slice[T](source :S[T], from :Int, until :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (from >= len)                    make(source, len, len)
-		else if (until <= 0)                make(source, 0, 0)
-		else if (from <= 0 && until >= len) make(source, 0, len)
-		else if (from <= 0)                 make(source, 0, until)
-		else if (until >= len)              make(source, from, len)
-		else if (until <= from)             make(source, from, from)
-		else                                make(source, from, until)
-	}
-}
-
-
-/** A [[net.noresttherein.sugar.collections.CountdownIterator CountdownIterator]] factory semantically equivalent
-  * to the regular [[net.noresttherein.sugar.collections.IndexedIteratorFactory IndexedIteratorFactory]],
-  * but passing the first index and iterator size, rather than an index range as the arguments to the iterator.
-  * @tparam S The collection-like type over which the iterators produced by this factory iterate.
-  * @tparam I The type of iterators produced by this factory.
-  * @define Coll `CountdownIterator`
-  */
-trait CountdownIteratorFactory[-S[_], +I[_]] extends IndexedIteratorFactory[S, I] {
-	protected override def make[T](source :S[T], first :Int, size :Int) :I[T]
-
-	override def from[T](source :S[T], first :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (first >= len) make(source, len, 0)
-		else if (first <= 0) make(source, 0, len)
-		else make(source, first, len - first)
-	}
-
-	override def apply[T](source :S[T], first :Int, length :Int) :I[T] = {
-		val len   = lengthOf(source)
-		val from  = math.max(0, math.min(len, first))
-		val size  = math.min(len - from, math.max(length, 0))
-		make(source, from, size)
-	}
-
-	override def slice[T](source :S[T], from :Int, until :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (from >= len)                    make(source, len, 0)
-		else if (until <= 0)                make(source, 0, 0)
-		else if (from <= 0 && until >= len) make(source, 0, len)
-		else if (from <= 0)                 make(source, 0, until)
-		else if (until >= len)              make(source, from, len - from)
-		else if (until <= from)             make(source, from, 0)
-		else                                make(source, from, until - from)
-	}
-}
-
-
-/** $factoryInfo
-  * @tparam S The collection-like type over which the iterators produced by this factory iterate.
-  * @tparam I The type of iterators produced by this factory.
-  * @define coll cyclic iterator
-  */ //consider: allowing to iterate multiple times over the array, treating the index modulo.
-trait CyclicIteratorFactory[-S[_], +I[_]] extends CountdownIteratorFactory[S, I] {
-	/** A $coll returning all the elements of `source` in ascending index order,
-	  * starting with index `first % source.length`. The index is increased modulo the length of the $source,
-	  * wrapping back to the beginning when its end is reached.
-	  */
-	override def from[T](source :S[T], first :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (len <= 1)       make(source, 0, len)
-		//This case would also cover the next one if it weren't for overflows.
-		else if (first < 0) make(source, (len + first % len) % len, len)
-		else                make(source, first % len, len)
-	}
-
-	/** A $coll returning `length` elements of the $source, starting with `source(offset)`. If `offset + length`
-	  * is greater than the size of the $source, then the iterator wraps to the beginning of the $source,
-	  * returning `source(0)` following `source(source.length - 1)`, and so on, until `min(length, source.length)`
-	  * elements are returned. If `length` is negative, the iterator will have no elements.
-	  * @param source the $source with elements to iterate.
-	  * @param offset the index of the first returned element, modulo the length of the array.
-	  * @param length the maximum number of returned elements.
-	  */ //consider: allowing returning more than source.length elements.
-	override def apply[T](source :S[T], offset :Int, length :Int) :I[T] = {
-		val len = lengthOf(source)
-		val from =
-			if (len <= 1) 0
-			else if (offset < 0) (len + offset % len) % len
-			else offset % len
-		make(source, from, math.min(math.max(length, 0), len))
-	}
-
-	/** A $coll returning subsequent elements of a $source, starting with index `from % source.length`,
-	  * and increasing modulo the length of the $source until index `until % source.length` is reached (exclusive).
-	  * If `from % source.length == until % source.length`, then the $coll will return the whole $source,
-	  * unless also `from == until`, in which case it will be empty.
-	  * @param source the $source with the elements to iterate.
-	  * @param from   the index of the first returned element, modulo the length of the $source.
-	  * @param until  the index immediately following the last element of the iterator.
-	  */
-	override def slice[T](source :S[T], from :Int, until :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (len == 0) //avoid division by zero
-			make(source, 0, 0)
-		else {
-			val from0  = if (from < 0) (len + from % len) % len else from % len
-			val until0 = if (until < 0) (len + until % len) % len else until % len
-			val size   =
-				if (until0 > from0) until0 - from0
-				else if (from0 > until0) len + until0 - from0
-				else if (from == until) 0
-				else len
-			make(source, from0, size)
-		}
-	}
-}
-
-
-/** A factory of iterators over ${input} returning the elements in the descending index order.
-  * @tparam S The collection-like type over which the iterators produced by this factory iterate.
-  * @tparam I The type of iterators produced by this factory.
-  * @define Coll `ReverseIndexedIterator`
-  * @define coll reverse iterator
-  */
-trait ReverseIndexedIteratorFactory[-S[_], +I[_]] extends IndexedIteratorFactory[S, I] {
-	override def apply[T](source :S[T]) :I[T] = make(source, 0, lengthOf(source))
-
-	/** A $coll returning elements `source(first), source(first - 1), ..., source(0)`.
-	  * If `first >= source.length`, then the whole $source is returned; if `first < 0`, then the iterator is empty.
-	  */
-	override def from[T](source :S[T], first :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (first <= -1) make(source, 0, 0)
-		else if (first >= len) make(source, 0, len)
-		else make(source, 0, first + 1)
-	}
-
-	/** A $coll returning elements `source(first), source(first - 1), ..., source(first - length + 1)`,
-	  * or until the first element of the $source - whichever comes sooner.
-	  * If `first >= source.length`, then `first` becomes the last element of the $source.
-	  * If the iterator needs to access an element at index lesser than zero, the excess elements are ignored.
-	  * Negative `length` is the same as zero.
-	  */
-	override def apply[T](source :S[T], first :Int, length :Int) :I[T] = {
-		val len    = lengthOf(source)
-		val from   = math.max(-1, math.min(len - 1, first))
-		val downTo = from - math.min(from + 1, math.max(length, 0))
-		make(source, downTo + 1, from + 1)
-	}
-
-	/** A $coll returning elements `source(until - 1), source(until - 2), ..., source(from)`.
-	  * If any of the indices in the `[from, until)` range is out of bounds for `source`, it is ignored.
-	  * Note that the first index argument is the last element of the iterator, and the actual first element
-	  * of the iterator resides at an index preceding the second argument.
-	  */ //override for docs.
-	override def slice[T](source :S[T], from :Int, until :Int) :I[T]
-}
-
-
-/** An [[net.noresttherein.sugar.collections.ReverseCountdownIterator ReverseCountdownIterator]] factory
-  * semantically equivalent to the regular
-  * [[net.noresttherein.sugar.collections.ReverseIndexedIteratorFactory ReverseIndexedIteratorFactory]],
-  * but passing the first index and iterator size, rather than an index range as the arguments to the iterator.
-  * @tparam S    The collection-like type over which the iterators produced by this factory iterate.
-  * @tparam I    The type of iterators produced by this factory.
-  * @define Coll `ReverseCountdownIterator`
-  */
-trait ReverseCountdownIteratorFactory[-S[_], +I[_]] extends ReverseIndexedIteratorFactory[S, I] {
-	protected override def make[T](source :S[T], first :Int, size :Int) :I[T]
-
-	override def apply[T](source :S[T]) :I[T] = {
-		val len = lengthOf(source)
-		make(source, len - 1, len)
-	}
-
-	/** A $coll returning elements `source(first), source(first - 1), ..., source(0)`.
-	  * If `first >= source.length`, then the whole $source is returned; if `first < 0`, then the iterator is empty.
-	  */
-	override def from[T](source :S[T], first :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (first <= -1)       make(source, -1, 0)
-		else if (first >= len) make(source, len - 1, len)
-		else                   make(source, first, first + 1)
-	}
-
-	/** A $coll returning elements `source(first), source(first - 1), ..., source(first - length + 1)`,
-	  * or until the first element of the $source - whichever comes sooner.
-	  * If `first >= source.length`, then the actual first returned element is the last element of the $source.
-	  * If the iterator needs to access an element at index lesser than zero, the excess elements are ignored.
-	  * Negative `length` is the same as zero.
-	  */
-	override def apply[T](source :S[T], first :Int, length :Int) :I[T] = {
-		val len  = lengthOf(source)
-		val from = math.max(-1, math.min(len - 1, first))
-		val size = math.min(from + 1, math.max(length, 0))
-		make(source, from, size)
-	}
-
-	/** A $coll returning elements `source(until - 1), source(until - 2), ..., source(from)`.
-	  * If any of the indices in the `[from, until)` range is out of bounds for `source`, it is ignored.
-	  * Note that the first index argument is the last element of the iterator, and the actual first element
-	  * of the iterator resides at an index preceding the second argument.
-	  */
-	override def slice[T](source :S[T], from :Int, until :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (from >= len) make(source, len, 0)
-		else if (until <= 0) make(source, -1, 0)
-		else if (from <= 0 & until >= len) make(source, len - 1, len)
-		else if (from <= 0) make(source, until - 1, until)
-		else if (until >= len) make(source, len - 1, len - from)
-		else if (until <= from) make(source, from, 0)
-		else make(source, until - 1, until - from)
-	}
-}
-
-
-/** $factoryInfo
-  * @tparam S    The collection-like type over which the iterators produced by this factory iterate.
-  * @tparam I    The type of iterators produced by this factory.
-  * @define coll reverse cyclic iterator
-  */
-trait ReverseCyclicIteratorFactory[-S[_], +I[_]] extends ReverseCountdownIteratorFactory[S, I] {
-	override def from[T](source :S[T], first :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (len == 0)          make(source, 0, 0)
-		else if (first >= len) make(source, first % len, len)
-		else if (first < 0)    make(source, (len + first % len) % len, len)
-		else                   make(source, first, len)
-	}
-
-	/** A $coll returning elements of the $source in the decreasing index order, starting with `source(first)`.
-	  * If `length > first + 1`, then, following `source(0)`, the iterator returns `source(source.length - 1)`,
-	  * `source(source.length - 2)`, and so on, until `min(length, source.length)` elements are returned.
-	  * If `length` is negative, the iterator will have no elements. If `length` is greater than the length of the array,
-	  * then all elements in the array are returned exactly once (assuming the iterator is exhausted).
-	  */
-	override def apply[T](source :S[T], first :Int, length :Int) :I[T] = {
-		val len = lengthOf(source)
-		val from =
-			if (len <= 1) 0
-			else if (first >= len) first % len
-			else if (first < 0) (len + first % len) % len
-			else first
-		make(source, from, math.min(len, math.max(length, 0)))
-	}
-
-	//An alternative approach would take size = until - from and let returning some elements more than once.
-	//In that case, however, we'd need to treat both as unsigned because of a real possibility of overflow.
-	/** A $coll returning elements of the $source at decreasing index order, starting with `(hi - 1) % source.length`,
-	  * and ending (inclusive) with `lo % source.length`. If `lo` is greater than `hi` modulo the length of the array,
-	  * the element at `0` is followed by elements at `source.length - 1, source.length - 2`, etc.
-	  * If `from % len == until % len`, then the iterator will return all elements in the array, unless `from == until`,
-	  * in which case it will be empty.
-	  */
-	override def slice[T](source :S[T], from :Int, until :Int) :I[T] = {
-		val len = lengthOf(source)
-		if (len == 0) //avoid division by zero!
-			make(source, 0, 0)
-		else {
-			val start = if (until > 0) (until - 1) % len else (len + until % len - 1) % len
-			val end   = if (from > 0) (from - 1) % len else (len + from % len - 1) % len
-			val size  =
-				if  (start > end) start - end
-				else if (start < end) len + start - end
-				else if (from == until) 0
-				else len
-			make(source, start, size)
-		}
-	}
-}
-
-
-
-
-
-
 /** An iterator advancing over a slice of an `IndexedSeq`.
   * @param first    the index in the sequence of the first/next element to return.
   * @param `last++` the index in the sequence delimiting the iterator, that is pointing after the last element
@@ -1099,14 +792,16 @@ private final class IndexedSeqIterator[+T] private[collections]
 
 
 /** $factoryInfo
-  * @define input indexed sequence
-  * @define coll  sequence iterator
+  * @define coll   sequence iterator
+  * @define Coll  `IndexedIterator`
+  * @define source indexed sequence
+  * @define Source `IndexedSeqOps`
   */
 @SerialVersionUID(Ver)
 private case object IndexedSeqIterator
-	extends IndexedIteratorFactory[({ type S[+X] = collection.IndexedSeqOps[X, kinds.Any1, Any] })#S, Iterator]
+	extends ExpandedSliceFactory[({ type S[+X] = collection.IndexedSeqOps[X, kinds.Any1, Any] })#S, Iterator]
 {
-	protected override def lengthOf[T](source :collection.IndexedSeqOps[T, Any1, Any]) :Int = source.length
+	protected override def totalSizeOf[T](source :collection.IndexedSeqOps[T, Any1, Any]) :Int = source.length
 
 	protected override def make[T](source :collection.IndexedSeqOps[T, kinds.Any1, Any], from :Int, until :Int)
 			:IndexedSeqIterator[T] =
@@ -1137,14 +832,16 @@ private final class ReverseIndexedSeqIterator[+T] private[collections]
 
 
 /** $factoryInfo
-  * @define input indexed sequence
-  * @define coll  reverse sequence iterator
+  * @define coll   reverse sequence iterator
+  * @define Coll  `ReverseIndexedIterator`
+  * @define source indexed sequence
+  * @define Source `IndexedSeqOps`
   */
 @SerialVersionUID(Ver)
 private case object ReverseIndexedSeqIterator
-	extends ReverseIndexedIteratorFactory[({ type S[X] = collection.IndexedSeqOps[X, Any1, Any] })#S, Iterator]
+	extends ReverseSliceFactory[({ type S[X] = collection.IndexedSeqOps[X, Any1, Any] })#S, Iterator]
 {
-	protected override def lengthOf[T](source :collection.IndexedSeqOps[T, Any1, Any]) :Int = source.length
+	protected override def totalSizeOf[T](source :collection.IndexedSeqOps[T, Any1, Any]) :Int = source.length
 
 	protected override def make[T](source :collection.IndexedSeqOps[T, Any1, Any], from :Int, until :Int) :Iterator[T] =
 		new ReverseIndexedSeqIterator(source, from - 1, until - 1)
@@ -1183,14 +880,16 @@ private final class RobustIndexedSeqIterator[+T] private[collections]
 
 
 /** $factoryInfo
-  * @define input indexed sequence
-  * @define coll  buffer iterator
+  * @define coll   buffer iterator
+  * @define Coll  `IndexedIterator`
+  * @define source indexed buffer
+  * @define Source `IndexedSeqOps`
   */
 @SerialVersionUID(Ver)
 private case object RobustIndexedSeqIterator
-	extends IndexedIteratorFactory[({ type S[+X] = collection.IndexedSeqOps[X, kinds.Any1, Any] })#S, Iterator]
+	extends ExpandedSliceFactory[({ type S[+X] = collection.IndexedSeqOps[X, kinds.Any1, Any] })#S, Iterator]
 {
-	protected override def lengthOf[T](source :collection.IndexedSeqOps[T, Any1, Any]) :Int = source.length
+	protected override def totalSizeOf[T](source :collection.IndexedSeqOps[T, Any1, Any]) :Int = source.length
 
 	protected override def make[T](source :collection.IndexedSeqOps[T, kinds.Any1, Any], from :Int, until :Int)
 			:RobustIndexedSeqIterator[T] =
@@ -1265,7 +964,7 @@ final class StringIterator private[collections]
 
 
 @SerialVersionUID(Ver)
-object StringIterator {
+case object StringIterator {
 	def apply(string :String) :StringIterator = new StringIterator(string, 0, string.length)
 
 	def from(string :String, first :Int) :StringIterator = {
@@ -1352,7 +1051,7 @@ final class ReverseStringIterator private[collections]
 
 
 @SerialVersionUID(Ver)
-object ReverseStringIterator {
+case object ReverseStringIterator {
 	def apply(string :String) :ReverseStringIterator = new ReverseStringIterator(string, -1, string.length - 1)
 
 	/** An iterator returning elements `seq(first), seq(first - 1), ..., seq(first - length + 1)`.

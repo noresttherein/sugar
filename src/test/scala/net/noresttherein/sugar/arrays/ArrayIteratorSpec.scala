@@ -10,7 +10,7 @@ import org.scalacheck.{Arbitrary, Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
 
-import net.noresttherein.sugar.collections.IndexedIteratorFactory
+import net.noresttherein.sugar.collections.ExpandedSliceFactory
 import net.noresttherein.sugar.extensions.classNameMethods
 import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
 import net.noresttherein.sugar.testing.scalacheck.typeClasses.arbitraryAny
@@ -19,11 +19,11 @@ import net.noresttherein.sugar.testing.scalacheck.typeClasses.arbitraryAny
 
 
 abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
-                                   (override val name :String, protected val factory :IndexedIteratorFactory[S, I])
+                                   (override val name :String, protected val factory :ExpandedSliceFactory[S, I])
 	extends Properties(name)
 {
 	override def overrideParameters(p :Test.Parameters) :Test.Parameters =
-		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(500).withMaxSize(128)
+		p.withTestCallback(ConsoleReporter(2, 140)).withMinSuccessfulTests(1000).withMaxSize(128)
 
 //	implicit protected def buildableSource[X :ClassTag] :Buildable[X, S[X]] = new Buildable[X, S[X]] {
 //		override def builder :Builder[X, S[X]] = sourceBuilder[X]
@@ -232,7 +232,7 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 
 
 
-abstract class ArrayIteratorProps[I[X] <: BufferedIterator[X]](name :String, factory :IndexedIteratorFactory[Array, I])
+abstract class ArrayIteratorProps[I[X] <: BufferedIterator[X]](name :String, factory :ExpandedSliceFactory[Array, I])
 	extends IndexedIteratorProps[Array, I](name, factory)
 {
 //	protected override def sourceBuilder[A :ClassTag] :Builder[A, Array[A]] = Array.newBuilder
@@ -258,5 +258,4 @@ abstract class ArrayIteratorProps[I[X] <: BufferedIterator[X]](name :String, fac
 
 
 
-object ArrayIteratorSpec
-	extends ArrayIteratorProps[BufferedIterator]("ArrayIterator", ArrayIterator)
+object ArrayIteratorSpec extends ArrayIteratorProps[BufferedIterator]("ArrayIterator", ArrayIterator)

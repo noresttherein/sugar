@@ -192,8 +192,8 @@ private[sugar] trait ArraySlicingOps[+E, +CC[_], +C]
   * @define Coll `ArrayLikeSlice`
   * @define coll array slice
   * @see [[net.noresttherein.sugar.collections.ArrayLikeSliceFactoryDefaults]]
-  */
-trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
+  */ //todo: manually
+private[sugar] trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 	extends Any with collection.IndexedSeqOps[E, CC, C] with collection.StrictOptimizedSeqOps[E, CC, C]
 	   with ArraySlicingOps[E, CC, C] with SugaredSeqOps[E, CC, C]
 { this :C =>
@@ -326,56 +326,7 @@ trait ArraySliceSeqOps[@specialized(ElemTypes) +E, +CC[_], +C]
 
 
 
-/** A factory wrapping containers of kind `S` in collections `C`.
-  * This is a limited implementation, which supports only collections backed by entire arrays,
-  * such as standard `ArraySeq`. See [[net.noresttherein.sugar.collections.ArrayLikeSliceWrapper ArrayLikeSliceWrapper]]
-  * for a factory of collections backed by slices of larger arrays.
-  * @see [[net.noresttherein.sugar.collections.ArraySeqFactory ArraySeqFactory]]
-  * @define Coll collection
-  * @define coll collection
-  */
-//Implementations of this trait are loaded dynamically by name, so the upper bound of ArrayLike is important
-// as a modicum of type safety, although, ideally, we'd use IArrayLike specifically for that.
-trait WrapperFactory[-S[E], +C[_]] extends Serializable {
-	/** Wraps the given $Source in a $Coll. The collection will share the contents with `source`,
-	  * and thus any modifications to either will be visible in the other.
-	  */
-	def wrap[E](source :S[E]) :C[E]
-
-	//consider: we could instead have separate IArrayLikeWrapper and MutableArrayWrapper to enforce this relationship,
-	// but it would involve tripling every descending trait.
-	def isImmutable :Boolean = false
-	def isMutable   :Boolean = false
-}
-
-
-/** A factory of `C` sequences backed by containers of kind `S`.
-  * Combines the wrapping interface with standard `SeqFactory` for a single type;
-  * used to define default array-backed sequences used by the library.
-  * @see [[net.noresttherein.sugar.collections.DefaultArraySeq]]
-  * @see [[net.noresttherein.sugar.collections.ArraySeqFactory.untagged]]
-  */
-trait SeqWrapperFactory[-S[E], +C[E] <: collection.SeqOps[E, collection.Seq, collection.Seq[E]]]
-	extends StrictOptimizedSeqFactory[C] with WrapperFactory[S, C]
-
-
-/** A factory of collections `C` representing a slice of another collection `A`.
-  * @define Coll collection
-  * @define coll collection
-  * @define Source collection
-  * @define source collection
-  */
-trait SliceFactory[-A[_], +C[_]] extends Serializable {
-	/** Creates a $coll over a slice of $source, exposing only elements `source(from), ..., source(until - 1)`.
-	  * The $coll will share the contents with `source`, and thus any modifications to either will be visible
-	  * in the other. If any of indices in the `[from, until)` range are negative or greater than the number of elements
-	  * in `source`, they are ignored.
-	  */ //consider: renaming to range
-	def slice[E](source :A[E], from :Int, until :Int) :C[E]
-}
-
-
-/** A factory of collections `C` exposing slices of arrays of kind `A`.
+/** A factory of collections/iterators `C` exposing slices of arrays of kind `A`.
   * @define Source `ArrayLike`
   * @define source array-like
   */
@@ -383,10 +334,7 @@ trait ArrayLikeSliceWrapper[-A[E] <: ArrayLike[E], +C[_]] extends SliceFactory[A
 	/** A $Coll view over `array`. */
 	override def wrap[E](array :A[E]) :C[E] = make(array, 0, array.length)
 
-	/** Wraps the given $source in a $coll, exposing only elements `array(from), ..., array(until - 1)`. The $coll
-	  * will share the contents with the array, and thus any modifications to either will be visible in the other.
-	  * If any of indices in the `[from, until)` range are negative or greater than the array's length, they are ignored.
-	  */ //consider: renaming to range
+	//consider: renaming to range
 	override def slice[E](array :A[E], from :Int, until :Int) :C[E] = {
 		val length = array.length
 		if (until <= 0) make(array, 0, 0)
@@ -854,8 +802,8 @@ private[sugar] case object ArraySlice extends ClassTagArrayLikeSliceFactory[Arra
   * @define coll immutable array slice
   */
 @SerialVersionUID(Ver)
-sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
-                        (underlying :IArray[E], final override val startIndex :Int, final override val length :Int)
+private[sugar] sealed class IArraySlice[@specialized(ElemTypes) +E] private[collections]
+                            (underlying :IArray[E], final override val startIndex :Int, final override val length :Int)
 	extends collection.AbstractSeq[E] with collection.IndexedSeq[E]
 	   with StrictOptimizedSeqOps[E, IArrayLikeSlice, IArraySlice[E]]
 	   with ArrayLikeSliceFactoryDefaults[E, IArray, IArraySlice] //Must be mixed in before immutable.IndexedSeq
