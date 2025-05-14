@@ -1803,19 +1803,20 @@ package vars {
 	  * an `IntPair` in an infix expression: `1 x 2`.
 	  */
 	@SerialVersionUID(Ver)
-	class IntPair private (private val bits :Long) extends AnyVal with Product2[Int, Int] with Serializable {
-		override def _1 :Int = (bits >> 32).toInt
-		override def _2 :Int = bits.toInt
+	class IntPair private[vars] (private val bits :Long) extends AnyVal with Product2[Int, Int] with Serializable {
+		@inline override def _1 :Int = (bits >> 32).toInt
+		@inline override def _2 :Int = bits.toInt
 
-		def toTuple :(Int, Int) = (_1, _2)
+		@inline def toTuple :(Int, Int) = (_1, _2)
 
 		override def canEqual(that :Any) :Boolean = that.isInstanceOf[IntPair]
 		override def toString :String = "(" + _1 + "," + _2 + ")"
 	}
 
-	object IntPair {
-		def apply(first :Int, second :Int) :IntPair = new IntPair(first.toLong << 32 | second & 0xffffffffL)
-		def unapply(pair :IntPair) :Opt[(Int, Int)] = One(pair.toTuple)
+	@SerialVersionUID(Ver)
+	case object IntPair {
+		@inline def apply(first :Int, second :Int) :IntPair = new IntPair(first.toLong << 32 | second & 0xffffffffL)
+		@inline def unapply(pair :IntPair) :Maybe[(Int, Int)] = Yes(pair.toTuple)
 
 		object conversions {
 			implicit class Int_x(private val self :Int) extends AnyVal {
@@ -1824,6 +1825,90 @@ package vars {
 
 			@inline implicit def IntPairToIntTuple(pair :IntPair) :(Int, Int) = (pair._1, pair._2)
 			@inline implicit def IntTupleToIntPair(pair :(Int, Int)) :IntPair = IntPair(pair._1, pair._2)
+		}
+	}
+
+
+	/** An immutable pair of `Short` values stored as an `Int` value,
+	  * getting rid of the boxing required to create a `(Short, Short)` tuple.
+	  * While almost redundant in itself in presence of [[net.noresttherein.sugar.vars.IntPair IntPair]],
+	  * it works as an intermediate step before creating a [[net.noresttherein.sugar.vars.ShortTriple ShortTriple]].
+	  * Implicit conversions to and from `(Short, Short)` can be found in
+	  * [[net.noresttherein.sugar.vars.ShortPair.conversions ShortPair.conversions]].
+	  * Said object defines also an [[net.noresttherein.sugar.vars.ShortPair.conversions.Short_x extension]] method
+	  * [[net.noresttherein.sugar.vars.ShortPair.conversions.Short_x.x x]] for `Short` values which creates
+	  * an `ShortPair` in an infix expression: `1 x 2`.
+	  */
+	@SerialVersionUID(Ver)
+	class ShortPair private[vars] (private val bits :Int)
+		extends AnyVal with Product2[Short, Short] with Serializable
+	{
+		@inline override def _1 :Short = (bits >> 16).toShort
+		@inline override def _2 :Short = bits.toShort
+
+		@inline def x(third :Short) :ShortTriple = ShortTriple((bits >> 16).toShort, bits.toShort, third)
+
+		@inline def toTuple :(Short, Short) = (_1, _2)
+
+		override def canEqual(that :Any) :Boolean = that.isInstanceOf[ShortPair]
+		override def toString :String = "(" + _1 + "," + _2 + ")"
+	}
+
+	@SerialVersionUID(Ver)
+	case object ShortPair {
+		def apply(first :Short, second :Short) :ShortPair = new ShortPair(first.toInt << 16 | second & 0xffff)
+		def unapply(pair :ShortPair) :Maybe[(Short, Short)] = Yes(pair.toTuple)
+
+		object conversions {
+			//consider: moving it to ShortExtension
+			implicit class Short_x(private val self :Short) extends AnyVal {
+				@inline def x(other :Short) :ShortPair = ShortPair(self, other)
+			}
+
+			@inline implicit def ShortPairToShortTuple(pair :ShortPair) :(Short, Short) = (pair._1, pair._2)
+			@inline implicit def ShortTupleToShortPair(pair :(Short, Short)) :ShortPair = ShortPair(pair._1, pair._2)
+		}
+	}
+
+
+
+	/** An immutable triple of `Short` values stored as a `Long` value,
+	  * getting rid of the boxing required to create an `(Int, Int, Int)` tuple.
+	  * Implicit conversions to and from `(Short, Short, Short)` can be found in
+	  * [[net.noresttherein.sugar.vars.ShortTriple.conversions ShortTriple.conversions]].
+	  * Values can be created using factory methods of the companion object,
+	  * but also from a [[net.noresttherein.sugar.vars.ShortPair ShortPair]]
+	  * and its [[net.noresttherein.sugar.vars.ShortPair.x x]] method in an infix fashion: `1 x 2 x 3`.
+	  * The first [[net.noresttherein.sugar.vars.ShortPair.conversions.Short_x.x x]] is an extension method
+	  * defined in `ShortPair.conversions` object.
+	  */
+	@SerialVersionUID(Ver)
+	class ShortTriple private[vars] (private val bits :Long)
+		extends AnyVal with Product3[Short, Short, Short] with Serializable
+	{
+		@inline override def _1 :Short = (bits >> 32).toShort
+		@inline override def _2 :Short = (bits >> 16 & 0xffffL).toShort
+		@inline override def _3 :Short = bits.toShort
+
+		@inline def toTuple :(Short, Short, Short) = (_1, _2, _3)
+
+		override def canEqual(that :Any) :Boolean = that.isInstanceOf[ShortTriple]
+		override def toString :String = "(" + _1 + "," + _2 + "," + _3 + ")"
+	}
+
+	@SerialVersionUID(Ver)
+	case object ShortTriple {
+		@inline def apply(first :Short, second :Short, third :Short) :ShortTriple =
+			new ShortTriple(first.toLong << 32 | (second & 0xffffL) << 16 | third & 0xffffL)
+
+		@inline def unapply(pair :ShortTriple) :Maybe[(Short, Short, Short)] = Yes(pair.toTuple)
+
+		object conversions {
+			@inline implicit def ShortTripleToShortTuple(triple :ShortTriple) :(Short, Short, Short) =
+				(triple._1, triple._2, triple._3)
+
+			@inline implicit def ShortTupleToShortTriple(triple :(Short, Short, Short)) :ShortTriple =
+				ShortTriple(triple._1, triple._2, triple._3)
 		}
 	}
 }
