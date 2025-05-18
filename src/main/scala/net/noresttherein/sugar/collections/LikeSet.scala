@@ -1,10 +1,11 @@
 package net.noresttherein.sugar.collections
 
 import net.noresttherein.sugar.collections.LikeIterable.LikeIterableBasics
-import net.noresttherein.sugar.extensions.IteratorExtension
+import net.noresttherein.sugar.collections.LikeIterableOnce.Generic.Template
 import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.typist.<::<
 import net.noresttherein.sugar.typist.kinds.Any1
+import net.noresttherein.sugar.util.SerializableSingleton
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -102,7 +103,14 @@ trait LikeSet[X, -Xs, +CC[_], +C] extends LikeIterable[X, Xs, CC, C] {
 
 
 /** @define TypeClass `LikeSet` */
-private[collections] sealed abstract class Rank1LikeSets extends LikeIterableOnceSummons[LikeSet] {
+private[collections] sealed abstract class Rank2LikeSets extends LikeIterableOnceSummons[LikeSet] {
+	@inline implicit final def likeGeneric[X, Xs <: CC[X], CC[_], C >: CC[X]]
+	                                      (implicit generic :Generic[CC]) :LikeSet[X, Xs, CC, C] =
+		generic.of
+}
+
+
+private[collections] sealed abstract class Rank1LikeSets extends Rank2LikeSets {
 	//Type parameter Xs for consistency with other LikeIterable classes.
 	implicit final def forOps[X, Xs, CC[_], C <: collection.SetOps[X, CC, C]]
 	                         (implicit arg :Xs <:< C, specific :C <:< CC[X] with collection.SetOps[X, CC, C],
@@ -142,6 +150,24 @@ object LikeSet extends Rank1LikeSets {
 			override val ops = likeSet.specific(elems)
 			override def diff(that :collection.Set[X]) :collection.Set[X] = filterNot(that)
 		}
+
+
+	trait Generic[CC[_]] extends LikeIterable.Generic[CC] with Template[CC, LikeSet]
+
+	@SerialVersionUID(Ver)
+	object Generic extends Rank1Generics {
+		@inline implicit def likeRanking[CC[_]](implicit generic :LikeRanking.Generic[CC]) :Generic[CC] = generic
+	}
+
+	private[LikeSet] sealed abstract class Rank1Generics {
+		implicit final def forOps[CC[X] <: Iterable[X] with collection.SetOps[X, CC, CC[X]]] :Generic[CC] =
+			prototype.asInstanceOf[Generic[CC]]
+
+		private[this] val prototype =
+			new SerializableSingleton("LikeSet.Generic.forOps", Generic.forOps[Set]) with Generic[Set] {
+				override implicit def of[X] :LikeSet[X, Set[X], Set, Set[X]] = LikeSet.forOps[X, Set[X], Set, Set[X]]
+			}
+	}
 
 
 	trait LikeMoreSpecific[X, -Xs, +CC[_], +C]

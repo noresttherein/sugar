@@ -2,17 +2,16 @@ package net.noresttherein.sugar.collections
 
 import scala.annotation.nowarn
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.generic.DefaultSerializable
-import scala.collection.{AbstractIterable, IterableFactory, IterableOps, LazyZip2, View, WithFilter}
+import scala.collection.{IterableFactory, IterableOps, View, WithFilter}
 import scala.collection.mutable.{Buffer, Builder}
 
-import net.noresttherein.sugar.JavaTypes.JCollection
-import net.noresttherein.sugar.casting.cast3TypeParamsMethods
+import net.noresttherein.sugar.collections.LikeIterableOnce.Generic.Template
 import net.noresttherein.sugar.collections.LikeIterableOnce.{GenericLikeIterableOnce, GenericLikeIterableOnceBuilder, LikeIterableOnceBasics, LikeIterableOnceBuilder, LikeIterableOnceFactory}
 import net.noresttherein.sugar.exceptions.unsupported_!
 import net.noresttherein.sugar.extensions.{BufferExtension, IteratorExtension, boxeqMethod}
 import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.typist.{<::<, kinds}
+import net.noresttherein.sugar.util.SerializableSingleton
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -367,7 +366,20 @@ trait LikeIterable[+X, -Xs, +CC[_], +C] extends LikeIterableOnce[X, Xs, CC, C] {
 
 
 /** @define TypeClass `LikeIterable` */
-private[collections] sealed abstract class Rank1LikeIterables extends LikeIterableOnceSummons[LikeIterable] {
+private[collections] sealed abstract class Rank2LikeIterables extends LikeIterableOnceSummons[LikeIterable] {
+	//We could make this method generic and return LC[X, CC[X], CC, CC[X]], but then there would be
+	// a precedence conflict with all implicits below, which are not generic. We could make them generic by accepting
+	// LC type parameter by all RankNLikeX superclasses (at the cost of complete forgoing of real type safety,
+	// but we can't do it with definitions in the actual object. Which would mean adding an extra superclass
+	// for every Like object anyway, and increase the definition complexity and confusion even more.
+	// I deemed it not worth it.
+	@inline implicit final def likeGeneric[X, Xs <: CC[X], CC[_], C >: CC[X]]
+	                                      (implicit generic :Generic[CC]) :LikeIterable[X, Xs, CC, C] =
+		generic.of
+}
+
+
+private[collections] sealed abstract class Rank1LikeIterables extends Rank2LikeIterables {
 	//Parameter Xs is needed so that the definition is not 'more specific' than likeSeq/likeSet
 	implicit final def forOps[X, Xs, CC[_], C]
 	                         (implicit arg :Xs <:< C, specific :C <:< CC[X] with IterableOps[X, CC, C],
@@ -408,6 +420,25 @@ object LikeIterable extends Rank1LikeIterables {
 			override val ops = likeIterable.specific(this.elems)
 		}
 
+
+	trait Generic[CC[_]] extends LikeIterableOnce.Generic[CC] with Template[CC, LikeIterable]
+
+	@SerialVersionUID(Ver)
+	object Generic extends Rank1Generics {
+		@inline implicit def likeSeq[CC[_]](implicit generic :LikeSeq.Generic[CC]) :Generic[CC] = generic
+		@inline implicit def likeSet[CC[_]](implicit generic :LikeSet.Generic[CC]) :Generic[CC] = generic
+		@inline implicit def likeRanking[CC[_]](implicit generic :LikeRanking.Generic[CC]) :Generic[CC] = generic
+	}
+
+	private[LikeIterable] sealed abstract class Rank1Generics {
+		implicit final def forOps[CC[X] <: Iterable[X] with IterableOps[X, CC, CC[X]]] :Generic[CC] =
+			prototype.asInstanceOf[Generic[CC]]
+
+		private[this] val prototype =
+			new SerializableSingleton("LikeIterable.Generic.forOps", Generic.forOps[Iterable]) with Generic[Iterable] {
+				implicit override def of[X] :LikeIterable[X, Iterable[X], Iterable, Iterable[X]] = LikeIterable.forOps
+			}
+	}
 
 
 	trait LikeMoreSpecific[+X, -Xs, +CC[_], +C]

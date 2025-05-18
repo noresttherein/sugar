@@ -11,7 +11,7 @@ import scala.reflect.{ClassTag, classTag}
 import net.noresttherein.sugar.JavaTypes.JCollection
 import net.noresttherein.sugar.arrays.{ArrayFactory, IArray, IRefArray, RefArray}
 import net.noresttherein.sugar.casting.{cast2TypeParamsMethods, castTypeParamMethods, castingMethods}
-import net.noresttherein.sugar.collections.LikeCollection.{LikeCollectionBasics, LikeMoreSpecific}
+import net.noresttherein.sugar.collections.LikeCollection.{Generic, LikeCollectionBasics, LikeMoreSpecific}
 import net.noresttherein.sugar.collections.extensions.{IterableOnceExtension, SeqFactoryExtension, StepperCompanionExtension}
 import net.noresttherein.sugar.collections.util.nothingToCopy
 import net.noresttherein.sugar.exceptions.{outOfBounds_!, unsupported_!}
@@ -21,6 +21,7 @@ import net.noresttherein.sugar.illegalState_!
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.kinds
 import net.noresttherein.sugar.typist.kinds.Any1
+import net.noresttherein.sugar.util.SerializableSingleton
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 import net.noresttherein.sugar.vars.{Maybe, Opt}
 import net.noresttherein.sugar.vars.Opt.One
@@ -377,12 +378,18 @@ trait LikeCollection[+X, -Xs] extends Serializable {
 
 
 
-private[collections] sealed abstract class Rank1LikeCollections {
-	implicit def single[X, Y](implicit eq :X =:= Y) :LikeCollection[X, Y] = singletonPrototype.castParams[X, Y]
+private[collections] sealed abstract class Rank2LikeCollections {
+	@inline implicit final def likeGeneric[E, C <: CC[E], CC[_]](implicit generic :Generic[CC]) :LikeCollection[E, C] =
+		generic.likeCollection
+}
 
-	def forSingleton[X] :LikeCollection[X, X] = singletonPrototype.castParam[X]
 
-	implicit def forStepper[X] :LikeCollection[X, Stepper[X]] =
+private[collections] sealed abstract class Rank1LikeCollections extends Rank2LikeCollections {
+	implicit final def single[X, Y](implicit eq :X =:= Y) :LikeCollection[X, Y] = singletonPrototype.castParams[X, Y]
+
+	final def forSingleton[X] :LikeCollection[X, X] = singletonPrototype.castParam[X]
+
+	implicit final def forStepper[X] :LikeCollection[X, Stepper[X]] =
 		stepperPrototype.asInstanceOf[LikeCollection[X, Stepper[X]]]
 
 	private[this] val singletonPrototype = new SingleValue[Any]
@@ -406,7 +413,7 @@ private[collections] sealed abstract class Rank1LikeCollections {
 
 
 @SerialVersionUID(Ver)
-object LikeCollection extends Rank1LikeCollections {
+case object LikeCollection extends Rank1LikeCollections {
 	/** A type holder for type aliases to use as type class view bound on type parameters:
 	  * {{{
 	  *     def addAll[C :LikeCollection.of[Int]#Coll](coll :C) = ...
@@ -417,6 +424,7 @@ object LikeCollection extends Rank1LikeCollections {
 		/** A type class representing `C` as a container of `X`. */
 		type Coll[C] = LikeCollection[X, C]
 	}
+
 
 	@inline def apply[E, C](implicit ops :LikeCollection[E, C]) :ops.type = ops
 
@@ -435,8 +443,8 @@ object LikeCollection extends Rank1LikeCollections {
 	}
 
 
-	@inline implicit def likeIterableOnce[E, CC[_], C]
-	                                     (implicit like :LikeIterableOnce[E, C, kinds.Any1, Any]) :LikeCollection[E, C] =
+	@inline implicit def likeIterableOnce[E, C](implicit like :LikeIterableOnce[E, C, kinds.Any1, Any])
+			:LikeCollection[E, C] =
 		like
 
 	implicit val forIntStepper :LikeCollection[Int, IntStepper] =
@@ -463,14 +471,45 @@ object LikeCollection extends Rank1LikeCollections {
 	private[this] val anyStepperPrototype :LikeCollection[Any, Stepper[Any]] =
 		new ForStepper[Any, Stepper[Any]] {
 			override def toString = "LikeCollection.forAnyStepper"
-			private def readResolve = anyStepperPrototype
+			private def readResolve :AnyRef = anyStepperPrototype
 		}
-
 
 
 	def adapt[X, Xs](elems :Xs)(implicit likeCollection :LikeCollection[X, Xs]) :IterableOnce[X] =
 		new LikeCollectionAdapter[X, elems.type](elems)(likeCollection.specific(elems))
 
+
+	/** A provider of `LikeCollection[X, CC]` for any element type `X`. Implicit values come from
+	  * the companion object for definitions of `LikeCollection` present in `LikeCollection` object itself,
+	  * and, recursively, from [[net.noresttherein.sugar.collections.LikeIterableOnce!.Generic Generic]]
+	  * traits defined in companion objects to various
+	  * [[net.noresttherein.sugar.collections.LikeIterableOnce LikeIterableOnce]] implementations.
+	  * The resolution follows the same pattern as for type classes in `LikeCollection` hierarchy.
+	  * @tparam CC the type constructor of containers crated by this instance.
+	  */
+	/* I hate the duplication of the boilerplate implicit propagation and infrastructure, but we can't make it
+	 * the primary type class because this would non-generic collections, basically everything extending LikeCollection
+	 * directly. And there is no way to express 'there is an implicit `LikeIterableOnce[X, C[X], C, C[X]]`
+	 * for any `X` and `C` (at least in Scala 2).
+	 */
+	trait Generic[CC[_]] extends Serializable {
+		implicit def likeCollection[X] :LikeCollection[X, CC[X]]
+	}
+
+	@SerialVersionUID(Ver)
+	object Generic extends Rank1Generics {
+		@inline implicit def likeIterableOnce[CC[_]](implicit generic :LikeIterableOnce.Generic[CC]) :Generic[CC] =
+			generic
+	}
+
+	private[LikeCollection] sealed abstract class Rank1Generics {
+		implicit final val forAnyStepper :Generic[AnyStepper] =
+			new SerializableSingleton("LikeCollection.Generic.forAnyStepper", Generic.forAnyStepper)
+				with Generic[AnyStepper] //with Generic.Template[AnyStepper, Generic.LikeCollectionAdapter]
+			{
+				override implicit def likeCollection[X] :LikeCollection[X, AnyStepper[X]] = LikeCollection.forAnyStepper
+			}
+	}
 
 
 	/** Overrides most methods of `LikeCollection` with `abstract override`, delegating them

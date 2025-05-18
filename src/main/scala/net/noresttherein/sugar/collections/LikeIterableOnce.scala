@@ -2,11 +2,10 @@ package net.noresttherein.sugar.collections
 
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.{Factory, IterableOnceOps, Stepper, StepperShape}
-import scala.collection.mutable.{Builder, Buffer}
+import scala.collection.mutable.{Buffer, Builder}
 import scala.reflect.ClassTag
 
 import net.noresttherein.sugar.arrays.ArrayLike
-import net.noresttherein.sugar.casting.{castTypeParamMethods, castingMethods}
 import net.noresttherein.sugar.collections.LikeCollection.LikeCollectionBasics
 import net.noresttherein.sugar.collections.LikeIterableOnce.FromIterableOnceOps
 import net.noresttherein.sugar.collections.LikeIterableOnceSummons.{GenericSummoner, SpecificSummoner}
@@ -14,6 +13,7 @@ import net.noresttherein.sugar.collections.extensions.IterableOnceExtension
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 import net.noresttherein.sugar.typist.{<::<, =::=, kinds}
 import net.noresttherein.sugar.typist.kinds.Any1
+import net.noresttherein.sugar.util.SerializableSingleton
 import net.noresttherein.sugar.vars.Maybe
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
@@ -561,12 +561,12 @@ private[collections] object LikeIterableOnceSummons {
 
 
 /** Base class for companion objects to [[net.noresttherein.sugar.collections.LikeIterableOnce LikeIterableOnce]]
-  * sub type classes. Provides simplified methods for summoning implicit values with bounds for typical use cases,
+  * subtype classes. Provides simplified methods for summoning implicit values with bounds for typical use cases,
   * as well as type aliases which can be used as view bounds.
   * @tparam LC a subtype of `LikeIterableOnce` which is being summoned.
   * @define TypeClass `LikeIterableOnce`
   */
-private[collections] abstract class LikeIterableOnceSummons[LC[_, -_, +CC[_], +_]] {
+abstract class LikeIterableOnceSummons[LC[X, -Xs, +CC[_], +C] <: LikeIterableOnce[X, Xs, CC, C]] {
 	/** A type holder for type aliases to use as type class view bound on type parameters:
 	  * {{{
 	  *     def addAll[C :LikeSeq.of[Int]#Specific](coll :C) = ...
@@ -598,9 +598,14 @@ private[collections] abstract class LikeIterableOnceSummons[LC[_, -_, +CC[_], +_
 		type Generic[C[_]] = LikeSeq[X, C[X], C, C[X]]
 	}
 
+	/** A type class for collection type constructors which provides $TypeClass`[X, CC[X], CC, CC[X]]`
+	  * for any element type `X`.
+	  */ //Can't extend LikeCollection.Generic because we have not put a bound of LikeCollection on LC.
+	type Generic[CC[_]] <: LikeCollection.Generic[CC] with LikeIterableOnce.Generic.Template[CC, LC]
+
 	/** Summons any implicit $TypeClass`[E, C, _, _]` - regardless of produced collection types. */
 	@inline final def any[E, C](implicit ops :LC[E, C, Any1, _]) :ops.type = ops
-	final def from[C](implicit ops :LC[Any, C, Any1, _]) :ops.type = ops
+	@inline final def from[C](implicit ops :LC[Any, C, Any1, _]) :ops.type = ops
 
 //	/** Followed by an application to an empty parameter group `()`, summons an implicit $TypeClass`[E, C, _, _]`,
 //	  * where the element type `E` is inferred during the application.
@@ -625,7 +630,21 @@ private[collections] abstract class LikeIterableOnceSummons[LC[_, -_, +CC[_], +_
 }
 
 
-private[collections] sealed abstract class Rank2LikeIterableOnces extends LikeIterableOnceSummons[LikeIterableOnce] {
+/** @define TypeClass `LikeIterableOnce` */
+private[collections] sealed abstract class Rank3LikeIterableOnces extends LikeIterableOnceSummons[LikeIterableOnce] {
+	//We could make this method generic and return LC[X, CC[X], CC, CC[X]], but then there would be
+	// a precedence conflict with all implicits below, which are not generic. We could make them generic by accepting
+	// LC type parameter by all RankNLikeX superclasses (at the cost of complete forgoing of real type safety,
+	// but we can't do it with definitions in the actual object. Which would mean adding an extra superclass
+	// for every Like object anyway, and increase the definition complexity and confusion even more.
+	// I deemed it not worth it.
+	@inline implicit final def likeGeneric[X, Xs <: CC[X], CC[_], C >: CC[X]]
+	                                      (implicit generic :Generic[CC]) :LikeIterableOnce[X, Xs, CC, C] =
+		generic.of
+}
+
+
+private[collections] sealed abstract class Rank2LikeIterableOnces extends Rank3LikeIterableOnces {
 //	implicit final def forIterableOnce[E] :LikeIterableOnce[E, IterableOnce[E], IterableOnce, IterableOnce[E]] =
 //		prototype.castParam[E]
 	//A complicated way of making it not more specific than forOps and forIterator.
@@ -674,6 +693,8 @@ object LikeIterableOnce extends Rank1LikeIterableOnces {
 			:LikeIterableOnce[X, Xs, CC, C] =
 		like
 
+	//We require this weird type parameter scheme so that forIterator is not 'more specific' than likeIterable
+	//(or forOps, in case of derived type classes).
 	implicit def forIterator[E, CC[_], C](implicit specific :C <:< Iterator[E] with IterableOnceOps[E, CC, C],
 	                                               generic :CC <::< Iterator) :LikeIterableOnce[E, C, CC, C] =
 		iteratorPrototype.asInstanceOf[LikeIterableOnce[E, C, CC, C]]
@@ -691,6 +712,51 @@ object LikeIterableOnce extends Rank1LikeIterableOnces {
 //		new LikeCollectionAdapter[X, Xs](elems) with LikeIterableOnceAdapter[X, Xs, IterableOnce, IterableOnce[X]] {
 //			override val ops = likeIterableOnce.specific(this.elems)
 //		}
+
+
+	trait Generic[CC[_]] extends LikeCollection.Generic[CC] with Generic.Template[CC, LikeIterableOnce]
+
+	@SerialVersionUID(Ver)
+	object Generic extends Rank1Generics {
+		@inline implicit def likeIterable[CC[_]](implicit generic :LikeIterable.Generic[CC]) :Generic[CC] = generic
+
+		implicit def forIterator[CC[X] <: Iterator[X]] :Generic[CC] = forIteratorPrototype.asInstanceOf[Generic[CC]]
+
+		/** The supertype of `LikeCollection.`[[net.noresttherein.sugar.collections.LikeCollection.Generic Generic]]
+		  * and [[net.noresttherein.sugar.collections.LikeIterableOnceSummons.Generic Generic]] traits from companion
+		  * object `LC` to the type class `LC` (a [[net.noresttherein.sugar.collections.LikeIterableOnce LikeIterableOnce]]
+		  * or adapted `LikeCollection`).
+		  */
+		trait Template[CC[_], +LC[X, Xs, C[_], CX] <: LikeIterableOnce[X, Xs, C, CX]]
+			extends LikeCollection.Generic[CC]
+		{
+			//This duplication is necessary, because LikeCollection is not generic;
+			// Generic.of must return LikeCollection[X, C[X]] in order to be useful, but the upper bound on LC
+			// is LikeCollection[X, Xs], not LikeCollection[X, CC[X]]; there is no way to have a common upper bound.
+			@inline final def likeCollection[X] :LC[X, CC[X], CC, CC[X]] = of
+			def of[X] : LC[X, CC[X], CC, CC[X]]
+		}
+
+		@SerialVersionUID(Ver)
+		private[this] object forIteratorPrototype extends Generic[Iterator] {
+				implicit override def of[X] :LikeIterableOnce[X, Iterator[X], Iterator, Iterator[X]] =
+					iteratorPrototype.asInstanceOf[LikeIterableOnce[X, Iterator[X], Iterator, Iterator[X]]]
+				override def toString = Generic.toString + ".forIterator"
+			}
+	}
+
+	private[LikeIterableOnce] sealed abstract class Rank1Generics {
+		implicit def forOps[CC[X] <: IterableOnceOps[X, CC, CC[X]]] :Generic[CC] =
+			forOpsPrototype.asInstanceOf[Generic[CC]]
+
+		private[this] val forOpsPrototype =
+			new SerializableSingleton("LikeIterableOnce.Generic.forOps", Generic.forOps[Iterable])
+				with Generic[Iterable]
+			{
+				implicit override def of[X] :LikeIterableOnce[X, Iterable[X], Iterable, Iterable[X]] =
+					LikeIterableOnce.forOps
+			}
+	}
 
 
 	/** Introduces ''abstract overrides'' for most of `LikeIterableOnce` methods, which first check if

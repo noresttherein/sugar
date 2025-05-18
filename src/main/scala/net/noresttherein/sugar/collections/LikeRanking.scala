@@ -1,15 +1,11 @@
 package net.noresttherein.sugar.collections
 
-import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
-import scala.collection.immutable.{IndexedSeqOps, StringView, WrappedString}
-import scala.collection.mutable.Buffer
-import scala.collection.{Factory, IndexedSeqView, IterableOnceOps, IterableOps, Stepper, StepperShape, WithFilter}
+import scala.collection.IndexedSeqView
 
-import net.noresttherein.sugar.JavaTypes.JStringBuilder
 import net.noresttherein.sugar.collections.LikeIndexedSeq.LikeIndexedSeqBasics
+import net.noresttherein.sugar.collections.LikeIterableOnce.Generic.Template
 import net.noresttherein.sugar.collections.LikeSet.LikeSetBasics
-import net.noresttherein.sugar.extensions.IteratorExtension
 import net.noresttherein.sugar.typist.<::<
 import net.noresttherein.sugar.typist.kinds.Any1
 import net.noresttherein.sugar.vars.Maybe
@@ -34,7 +30,15 @@ trait LikeRanking[X, -Xs, +CC[_], +C] extends LikeIndexedSeq[X, Xs, CC, C] with 
 
 
 
-private[collections] sealed abstract class Rank1LikeRankings extends LikeIterableOnceSummons[LikeRanking] {
+/** @define TypeClass `LikeRanking` */
+private[collections] sealed abstract class Rank2LikeRankings extends LikeIterableOnceSummons[LikeRanking] {
+	@inline implicit final def likeGeneric[X, Xs <: CC[X], CC[_], C >: CC[X]]
+	                                      (implicit generic :Generic[CC]) :LikeRanking[X, Xs, CC, C] =
+		generic.of
+}
+
+
+private[collections] sealed abstract class Rank1LikeRankings extends Rank2LikeRankings {
 	implicit final def forOps[X, Xs <: C, CC[+A] <: IterableOnce[A], C <: CC[X]]
 	                         (implicit arg :Xs <:< C, specific :C <:< CC[X] with RankingOps[X, CC, C],
 	                                   generic :CC <::< Iterable) :LikeRanking[X, Xs, CC, C] =
@@ -61,6 +65,19 @@ object LikeRanking extends Rank1LikeRankings {
 //			override def iterator :Iterator[X] = ops.iterator(elems)
 		}
 */
+	trait Generic[CC[_]] extends LikeIndexedSeq.Generic[CC] with LikeSet.Generic[CC] with Template[CC, LikeRanking]
+
+	@SerialVersionUID(Ver)
+	object Generic {
+		implicit def forOps[CC[+X] <: Iterable[X] with RankingOps[X, CC, CC[X]]] :Generic[CC] =
+			prototype.asInstanceOf[Generic[CC]]
+
+		@SerialVersionUID(Ver)
+		private[this] object prototype extends Generic[Ranking] {
+			override implicit def of[X] :LikeRanking[X, Ranking[X], Ranking, Ranking[X]] = LikeRanking.forOps
+			override def toString = "LikeRanking.Generic.forOps"
+		}
+	}
 
 
 	trait LikeRankingBasics[X, -Xs, +CC[_], +C]
