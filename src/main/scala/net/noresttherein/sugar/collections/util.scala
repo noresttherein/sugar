@@ -29,7 +29,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 private[sugar] object util {
-	//These two methods are problematic because, in theory, they can be overridden by a class to throw an exception
+	//These three methods are problematic because, in theory, they can be overridden by a class to throw an exception
 	// and simply not used by an implementation.
 	def specificBuilder[E, CC[_], C](items :IterableOps[E, CC, C]) :Builder[E, C] =
 		try {
@@ -49,6 +49,9 @@ private[sugar] object util {
 				throw e.getTargetException
 		}
 
+	//This may not work; conceivably, a class may implement IterableOps and override all relevant method,
+	// while having coll throw an exception. I think we should default to drop(0) or similar. Unfortunately,
+	// this may create a copy of a mutable collection.
 	def coll[E, CC[_], C](items :IterableOps[E, CC, C]) :C =
 		try {
 			collMethod.invoke(items).asInstanceOf[C]
@@ -59,10 +62,14 @@ private[sugar] object util {
 		}
 
 	def className(items :IterableOnce[_]) :String = items match {
-		case _ :Iterable[_] =>
-			try classNameMethod.invoke(items).asInstanceOf[String] catch {
+		case it :Iterable[_] => classNameAccessor match {
+			case Some(f) => f(it)
+			case _       => try
+				classNameMethod.invoke(items).asInstanceOf[String]
+			catch {
 				case _ :InvocationTargetException => items.localClassName
 			}
+		}
 		case _ => items.localClassName
 	}
 
@@ -80,6 +87,13 @@ private[sugar] object util {
 	fromSpecificMethod.setAccessible(true)
 	collMethod.setAccessible(true)
 	classNameMethod.setAccessible(true)
+
+	private[this] val classNameAccessor = try Some(
+			Class.forName("net.noresttherein.sugar.collections.IterableNameAccessor")
+			     .getConstructor().newInstance().asInstanceOf[Iterable[_] => String]
+		) catch {
+			case _ :Throwable => None
+		}
 
 
 	def knownEmpty(items :IterableOnce[_]) :Boolean = {

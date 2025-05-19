@@ -2376,6 +2376,7 @@ object extensions extends extensions {
 		/** Creates an `Array[AnyRef]` with elements of this collection, and passes it as an `IRefArray[A]`. */
 		def toIRefArray[A >: E] :IRefArray[A] = IRefArray.from(self)
 
+		private[sugar] def nameAndSize :String = errorString(self)
 	}
 
 	private final class PartialFoldLeftFunction[A, T] extends (((A, T)) => A) {
