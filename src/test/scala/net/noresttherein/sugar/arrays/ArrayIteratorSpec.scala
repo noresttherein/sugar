@@ -9,9 +9,9 @@ import scala.reflect.ClassTag
 import org.scalacheck.{Arbitrary, Prop, Properties, Test}
 import org.scalacheck.Prop._
 import org.scalacheck.util.ConsoleReporter
-
 import net.noresttherein.sugar.collections.ExpandedSliceFactory
-import net.noresttherein.sugar.extensions.classNameMethods
+import net.noresttherein.sugar.collections.util.errorString
+import net.noresttherein.sugar.extensions.{ThrowableExtension, classNameMethods}
 import net.noresttherein.sugar.testing.scalacheck.extensions.{LazyExtension, PropExtension}
 import net.noresttherein.sugar.testing.scalacheck.typeClasses.arbitraryAny
 
@@ -50,6 +50,11 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 		else if (idx < 0) (len + idx % len) % len
 		else idx % len
 
+	protected def mod(index :Long, length :Int) :Int =
+		if (length == 0) 0
+		else if (index >= 0) (index % length).toInt
+		else (length + (index % length).toInt) % length
+
 	protected def clip(idx :Long, length :Int) :Int =
 		if (idx < 0) 0
 		else if (idx > length) length
@@ -76,10 +81,14 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 	new IteratorProperty(s"$name(source, first, length)") {
 		override def apply[X :ClassTag :Ordering :Arbitrary](source :S[X]) :Prop =
 			forAll { (first :Int, length :Int) =>
-				val expect = expectApply(source, first, length)
-				apply(expect, factory(source, first, length)) lbl
-					s"$name(${contents(source)}, $first, $length) == " +
-						factory(source, first, length).mkString("Iterator(", ", ", ")") + "\n!= " + expect
+				try {
+					val expect = expectApply(source, first, length)
+					apply(expect, factory(source, first, length)) lbl
+						s"$name(${ contents(source) }, $first, $length) == " +
+							factory(source, first, length).mkString("Iterator(", ", ", ")") + "\n!= " + expect
+				} catch {
+					case e :scala.Exception => e.printStackTrace(System.out); throw e
+				}
 			}
 	}
 	new IteratorProperty(s"$name.from") {
@@ -146,9 +155,11 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 	new IteratorProperty("splitAt") {
 		override def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iterator: => I[X]) :Prop =
 			forAll { (n :Int) =>
-				val (first, second) = iterator.splitAt(n)
+				val (first, second)    = iterator.splitAt(n)
 				val (expect1, expect2) = expect.splitAt(n)
-				(seq(first) ?= expect1) :| "_1" && (seq(second) ?= expect2) :| "_2"
+				try {
+					(seq(first) ?= expect1) :| "_1" && (seq(second) ?= expect2) :| "_2"
+				} catch { case e :scala.Exception => e.printStackTrace(System.err); throw e }
 			}
 	}
 
@@ -193,7 +204,9 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 					iterator.copyToArray(buffer, start, len).throws[IndexOutOfBoundsException] &&
 						(ArraySeq.unsafeWrapArray(buffer) ?= ArraySeq.unsafeWrapArray(target))
 				else {
-					val copied = iterator.copyToArray(buffer, start, len)
+					val copied = try iterator.copyToArray(buffer, start, len) catch {
+						case e :scala.Exception => throw e.addInfo(s"copyToArray(${errorString(buffer)}, $start, $len)")
+					}
 					val end0   = start0 + copied
 //					if (expect != buffer.toSeq.slice(start, start + shouldCopy)) {
 //						Console.err.println("Expected: " + expect.take(copied))

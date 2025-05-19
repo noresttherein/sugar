@@ -26,7 +26,7 @@ import net.noresttherein.sugar.typist.kinds.Any1
 
 
 
-/** An array buffer switching to a two dimensional array if it's size exceeds a certain threshold.
+/** An array buffer switching to a two-dimensional array if it's size exceeds a certain threshold.
   * It has similar characteristics to an [[collection.mutable.ArrayBuffer ArrayBuffer]], including very fast `O(1)`
   * random access, and amortized `O(1)` prepend/append and removal from either end, while avoiding allocation
   * of arrays of size which might pose a challenge for the JVM's heap management. Up until $MaxSize1 elements,
@@ -61,7 +61,7 @@ import net.noresttherein.sugar.typist.kinds.Any1
   * @define MaxSize1 65536
   * @define MaxSize  `Int.MaxValue`
   * @author Marcin Mościcki
-  */ //consider: renaming to Array2Buffer; specializing
+  */ //consider: renaming to Array2Buffer; specializing. Chocolate would be a good name for a matrix-like collection
 @SerialVersionUID(Ver)
 sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit override val iterableEvidence :ClassTag[E])
 	extends AbstractBuffer[E] with IndexedBuffer[E] with mutable.IndexedSeqOps[E, MatrixBuffer, MatrixBuffer[E]]
@@ -89,7 +89,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	  * than `MaxDim2`, and all non-null elements are of fixed length `MaxDim1` (equal also to `MaxSize1`).
 	  * Regardless, its length is always a power of two. May also be `null` if `storageSize == 0`.
 	  * In this way, the dimension - and nullity - of this field is determined exactly by the `storageSize` property.
-	  * A two dimensional array maps to a virtual address space of individual elements, where the absolute index
+	  * A two-dimensional array maps to a virtual address space of individual elements, where the absolute index
 	  * of an element at `data(n)(m)` equals `n * MaxSize1 + m`. For a single dimensional array,
 	  * the absolute index is simply the array index.
 	  *
@@ -113,7 +113,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	  * It determines the dimension of the `data` array:
 	  *   - if `storageSize == 0`, then `data` is `null` and the buffer is empty;
 	  *   - if `storageSize <= MaxSize1`, then `data` is a single dimensional array of that length
-	  *   - otherwise, data is a two dimensional array containing `storageSize >>> Dim1Bits` single dimensional arrays
+	  *   - otherwise, data is a two-dimensional array containing `storageSize >>> Dim1Bits` single dimensional arrays
 	  *     of length `MaxSize1` at consecutive indices (modulo `data.length`). The index of the first allocated array
 	  *     is always `dataOffset >>> Dim1Bits`, i.e. if the buffer contains any fully empty arrays, they are always
 	  *     at the end.
@@ -133,7 +133,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 
 	private[sugar] final def startIndex :Int = dataOffset
 
-	/** A mask for a two dimensional index. 'Anding' with it calculates the remainder of division by the total capacity
+	/** A mask for a two-dimensional index. 'Anding' with it calculates the remainder of division by the total capacity
 	  * (including unallocated arrays).
 	  */
 	@inline private def indexMask = (data2.length << Dim1Bits) - 1
@@ -357,7 +357,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				values.copyToArray(elems, data1, 0, elemsSize)
 				storageSize = capacity
 				dataSize += elemsSize
-			} else {                                  //create a two dimensional array
+			} else {                                       //create a two-dimensional array
 				var capacity2      = NewSize2
 				val unsignedLength = elemsSize + MinValue
 				while ((capacity2 << Dim1Bits) + MinValue < unsignedLength)
@@ -368,7 +368,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				storageSize = MaxSize1 << 1
 				addKnownSize(elems, elemsSize)
 			}
-		} else if (storageSize <= MaxSize1) {         //dim == 1
+		} else if (storageSize <= MaxSize1) {              //dim == 1
 			val newSize     = dataSize + elemsSize
 			val dataEnd     = dataOffset + dataSize
 			if (elemsSize <= storageSize - dataSize) {
@@ -381,7 +381,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				var capacity = storageSize << 1
 				while (capacity < newSize)
 					capacity <<= 1
-				if (dataEnd <= storageSize) {         //data is not wrapped
+				if (dataEnd <= storageSize) {              //data is not wrapped
 					data = Array.copyOf(data, capacity)
 					if (dataEnd + elemsSize <= capacity)
 						values.copyToArray(elems, data1, dataEnd, elemsSize)
@@ -397,13 +397,13 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 					values.copyToArray(elems, a, dataSize, elemsSize)
 				}
 				storageSize = capacity
-			} else {                                  //must grow to the second dimension
+			} else {                                       //must grow to the second dimension
 				growToDim2(elemsSize)
 				allocBack(elemsSize)
 				write2(dataOffset + dataSize & indexMask, elems, elemsSize)
 			}
 			dataSize += elemsSize
-		} else {                                      //dim == 2
+		} else {                                           //dim == 2
 			allocBack(elemsSize)
 			write2(dataOffset + dataSize & indexMask, elems, elemsSize)
 			dataSize += elemsSize
@@ -454,7 +454,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			storageSize = NewSize1
 			dataOffset  = NewSize1 - 1
 		} else if (storageSize <= MaxSize1) {                               //dim == 1
-			if (dataSize < storageSize) {                                      //buffer not full
+			if (dataSize < storageSize) {                                   //buffer not full
 				dataOffset = dataOffset - 1 & storageSize - 1
 				data1(dataOffset) = elem
 			} else if (storageSize < MaxSize1) {                            //double the size of the dim 1 array
@@ -502,9 +502,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 					errorString(elems) + ", " + idx + ", " + length + ")")
 		if (length == 0)
 			this
-		else if (storageSize == 0)                                 //dim == 0
+		else if (storageSize == 0)                               //dim == 0
 			addAll(elems, idx, length)
-		else if (storageSize <= MaxSize1) {                   //dim == 1
+		else if (storageSize <= MaxSize1) {                      //dim == 1
 			val newSize = dataSize + length
 			if (length <= storageSize - dataSize) {
 				val newOffset = dataOffset - length & storageSize - 1
@@ -516,7 +516,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				var capacity = storageSize << 1
 				while (capacity < newSize)
 					capacity <<= 1
-				if (dataEnd <= storageSize) {                 //data is not wrapped
+				if (dataEnd <= storageSize) {                    //data is not wrapped
 					data = Array.copyOf(data, capacity)
 					dataOffset = dataOffset - length & capacity - 1
 					ArrayLike.cyclicCopyTo(elems, idx, data1, dataOffset, length)
@@ -530,12 +530,12 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				}
 				storageSize = capacity
 				dataSize   += length
-			} else {                                          //must grow to the second dimension
+			} else {                                             //must grow to the second dimension
 				growToDim2(length)
 				prependAll(elems, idx, length)
 			}
 			this
-		} else {                                              //dim == 2
+		} else {                                                 //dim == 2
 			allocFront(length)
 			dataOffset = dataOffset - length & indexMask
 			write2(dataOffset, elems, idx, length)
@@ -564,7 +564,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			bufferFull(elemsSize)
 		if (dataSize == 0)                                       //dim == 0
 			addKnownSize(elems, elemsSize)
-		else if (storageSize <= MaxSize1) {                   //dim == 1
+		else if (storageSize <= MaxSize1) {                      //dim == 1
 			if (elemsSize <= storageSize - dataSize) {
 				dataOffset = dataOffset - elemsSize & storageSize - 1
 				dataSize  += elemsSize
@@ -575,7 +575,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				var capacity = storageSize << 1
 				while (capacity < newSize)
 					capacity <<= 1
-				if (dataEnd <= storageSize) {                  //data is not wrapped
+				if (dataEnd <= storageSize) {                    //data is not wrapped
 					data = Array.copyOf(data, capacity)
 					dataOffset = dataOffset - elemsSize & capacity - 1
 				} else {
@@ -589,11 +589,11 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				values.cyclicCopyToArray(elems, data1, dataOffset, elemsSize)
 				storageSize = capacity
 				dataSize   += elemsSize
-			} else {                                          //must grow to the second dimension
+			} else {                                             //must grow to the second dimension
 				growToDim2(elemsSize)
 				prependKnownSize(elems, elemsSize)
 			}
-		} else {                                              //dim == 2
+		} else {                                                 //dim == 2
 			allocFront(elemsSize)
 			dataOffset = dataOffset - elemsSize & indexMask
 			dataSize  += elemsSize
@@ -906,7 +906,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		}
 	}
 
-	/** Implementation of both `insert` and `insertAll` for a two dimensional buffer,
+	/** Implementation of both `insert` and `insertAll` for a two-dimensional buffer,
 	  * covering the case when the collection is known to have `elemsSize` elements.
 	  */
 	private def insertKnownSize2[Es](idx :Int, elems :Es, elemsSize :Int)(implicit values :LikeCollection[E, Es]) :Unit = {
@@ -924,7 +924,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		dataSize += elemsSize
 	}
 
-	/** Implementation of both `insert` and `insertAll` for a two dimensional buffer,
+	/** Implementation of both `insert` and `insertAll` for a two-dimensional buffer,
 	  * covering the case when the collection's size is not known.
 	  */
 	private def insertUnknownSize2[Es](idx :Int, elems :Es)(implicit values :LikeCollection[E, Es]) :Unit =
@@ -1057,7 +1057,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 				} catch {
 					case e :Exception =>
 						val after  = data2(dim2(dataOffset + idx) & data2.length - 1)
-						//We haven't cleared the prefix of the suffix in the array with idx, so lets do it now if necessary.
+						//We haven't cleared the prefix of the suffix in the array with idx, so let's do it now if necessary.
 						if (firstInSuffix.isInstanceOf[Array[AnyRef]] &&
 							(firstInSuffix eq after) && idx1 > 0 && dataSize < idx - idx1 + MaxSize1
 						)
@@ -1276,7 +1276,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	  * and neither will it allocate the exact requested capacity. It does however guarantee that the buffer will
 	  * use no more than `2 * max(totalSize, size)` memory (if `max(size, totalSize) <= MaxSize1`),
 	  * or `((max(totalSize, size) + MaxSize1 - 1) / MaxSize1) * MaxSize1` (that is, the minimal number
-	  * of full two dimensional arrays) if `max(size, totalSize) > MaxSize1`, where `MaxSize1` is the size limit
+	  * of full two-dimensional arrays) if `max(size, totalSize) > MaxSize1`, where `MaxSize1` is the size limit
 	  * of a single dimensional buffer.
 	  */
 	def sizeHint(totalSize :Int) :Unit =
@@ -1360,7 +1360,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	/** Reserves space for additional `delta` elements in order to avoid repeated copying and reallocation
 	  * when adding elements one by one. It will not resize the buffer exactly to the given capacity,
 	  * but grow it by chunks of minimal size. It will however guarantee that the allocated storage is not greater
-	  * than `2 * (size + delta)`. If the requested capacity requires a two dimensional buffer,
+	  * than `2 * (size + delta)`. If the requested capacity requires a two-dimensional buffer,
 	  * this method will not allocate additional single dimensional arrays, but only ensure that the outer array
 	  * will not need to be copied. The former will be allocated as needed, when writing to the buffer.
 	  * Passing negative `delta` causes no effect.
@@ -1484,7 +1484,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			storageSize = capacity
 		}
 
-	/** Grows the outer array in a two dimensional buffer to length `l` such that `l * MaxSize1 >= dataSize + delta`.
+	/** Grows the outer array in a two-dimensional buffer to length `l` such that `l * MaxSize1 >= dataSize + delta`.
 	  * Does not allocate any new single dimensional arrays.
 	  */
 	private def grow2(delta :Int) :Unit = { //, appending :Boolean) :Unit = {
@@ -1496,9 +1496,9 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		val preferredCapacity2 = math.max(requiredForAppend, requiredForPrepend)
 		if (delta > MaxValue - dataSize)
 			bufferFull(delta)
-		//Lets try to not write the prefix in the same array as the suffix at dim2(dataOffset) -
+		//Let's try to not write the prefix in the same array as the suffix at dim2(dataOffset) -
 		// easier to grow later, because we copy whole arrays, not individual elements.
-		//I originally required specifying if its for append or prepend, but it makes reserve
+		//I originally required specifying if it's for append or prepend, but it makes reserve
 		// impossible to implement reliably, so I resorted to accommodating for both. Doesn't change the complexity.
 		if (preferredCapacity2 > length2 - 1 & length2 != MaxDim2) {
 			//Must grow the outer array.
@@ -1539,7 +1539,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	  * of `delta`.
 	  */
 	private def growToDim2(delta :Int) :Unit = {
-		//We use to check storageSize > MaxSize1 to test if the array is two dimensional, so we must allocate two arrays.
+		//We check storageSize > MaxSize1 to test if the array is two-dimensional, so we must allocate two arrays.
 		val capacity2 = growCapacity2(delta)
 		val array2    = new Array[Array[E]](capacity2)
 		if (dataOffset + dataSize <= storageSize) {    //the data is not wrapped
@@ -1573,7 +1573,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		data        = array2
 	}
 
-	/** The size of the outer array to which a two dimensional buffer should grow to accommodate additional `delta` elements. */
+	/** The size of the outer array to which a two-dimensional buffer should grow to accommodate additional `delta` elements. */
 	private def growCapacity2(delta :Int) :Int = {
 		val newSize   = dataSize + delta
 		var capacity2 = MaxDim2
@@ -1595,8 +1595,8 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		filterInPlace(!set.contains(_))
 	}
 
-	@inline final def removeHead :E = remove(0)
-	def removeLast :E = remove(dataSize - 1)
+	@inline final def removeHead() :E = remove(0)
+	def removeLast() :E = remove(dataSize - 1)
 
 	override def remove(idx :Int) :E = {
 		val res = apply(idx)
@@ -1657,7 +1657,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 		dataSize -= count
 	}
 
-	/** Implementation of remove for the case of a two dimensional buffer. */
+	/** Implementation of remove for the case of a two-dimensional buffer. */
 	private def remove2(idx :Int, count :Int) :Unit =
 		if (shrink && shouldFlatten(count))  //Reduce the dimension, copy all remaining data to a single array.
 			removeAndFlatten(idx, count)
@@ -2219,7 +2219,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			}
 		}
 
-	/** The length of the outer array in a two dimensional buffer to which the buffer should shrink
+	/** The length of the outer array in a two-dimensional buffer to which the buffer should shrink
 	  * if it contains `toTotalSize` elements. Will never return less than `MinSize2`.
 	  */
 	private def shrunkOuterDimension(toTotalSize :Int) :Int = {
@@ -2248,7 +2248,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 	  * This is counted in individual elements: a value of `MaxSize1` or less indicates the buffer should shrink
 	  * to a single dimension; otherwise `dim2(shrunkDimension(delta))` is the number of single dimensional
 	  * arrays which should remain allocated after the removal. This in no way deals with shrinking of the outer,
-	  * two dimensional array itself.
+	  * two-dimensional array itself.
 	  */
 	private def shrunkDimension2(delta :Int) :Int = {
 		var capacity = data2.length << Dim1Bits
@@ -2295,7 +2295,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			dataOffset = dataOffset + n & indexMask
 		}
 
-	/** Deallocates whole single dimensional arrays in the two dimensional array between indices `from2`
+	/** Deallocates whole single dimensional arrays in the two-dimensional array between indices `from2`
 	  * and `from2 + length` (treated modulo `data2.length`).
 	  */
 	private def deallocate(from2 :Int, length :Int) :Unit =
@@ -2332,7 +2332,7 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 			}
 
 	/** Clears (deallocates individual elements of the collection) arrays between indices `from2` and `until2`
-	  * (treated modulo `data2.length`) in the two dimensional array.
+	  * (treated modulo `data2.length`) in the two-dimensional array.
 	  */
 	private def clear2IfRef(start2 :Int, length2 :Int) :Unit =
 		if (data.isInstanceOf[Array[Array[AnyRef]]] & length2 > 0) {
@@ -2347,12 +2347,13 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 
 	/** Empties the buffer, deallocating ''all'' held memory.
 	  * If you intend to shortly grow the buffer to a similar size, you have two alternatives
-	  * for limiting this unallocation:
+	  * for limiting this deallocation:
 	  *   1. [[net.noresttherein.sugar.collections.MatrixBuffer.remove remove]](`0, this.size)`
 	  *      (as well as [[collection.mutable.Buffer.takeInPlace takeInPlace]]`(0)`) will reduce the buffer capacity
 	  *      to the default initial level (if the buffer is single dimensional), or a single array
 	  *      if the buffer has two dimensions.
 	  *   1. [[net.noresttherein.sugar.collections.MatrixBuffer.free free]]`()` will not deallocate any storage.
+	  *
 	  * The references to objects in all cases are always cleared, freeing them for garbage collection.
 	  */
 	override def clear() :Unit =
@@ -2642,14 +2643,14 @@ sealed class MatrixBuffer[E](initialCapacity :Int, shrink :Boolean)(implicit ove
 case object MatrixBuffer extends MatrixBufferFactory(false) {
 	final val shrinking = ShrinkingMatrixBuffer
 
-	/** Projects an absolute index to the index within some single dimensional array under a two dimensional array.
+	/** Projects an absolute index to the index within some single dimensional array under a two-dimensional array.
 	  * @return the positive remainder of division of `idx` by `MaxSize1`.
 	  */
 	@inline private def dim1(idx :Int) :Int = idx & Dim1Mask
 
-	/** Projects an absolute index (or a total capacity) to the corresponding index in the outer, two dimensional array.
-	  * The argument is treated as ''unsigned'', and will always produce a non negative value.
-	  * Passing a negative argument will work only if the result is later 'and'ed with a mask:
+	/** Projects an absolute index (or a total capacity) to the corresponding index in the outer, two-dimensional array.
+	  * The argument is treated as ''unsigned'', and will always produce a non-negative value.
+	  * Passing a negative argument will work only if the result is later 'and'-ed with a mask:
 	  * `dim2(x - y) & data2.length - 1`. Prefer using `dim2(x + MaxSize1 - 1)` over `dim2(x - 1) + 1`,
 	  * and divide manually where sign is uncertain.
 	  * @return `idx >>> MaxSize1`
@@ -2659,16 +2660,16 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 	//Doesn't make sense to have MinSize1 != newSize1 or MinSize2 != newSize2,
 	// because any removal just after allocation will result in reallocation to a smaller array.
 	private final val Dim1Bits = 15                      //The log2 of the maximum size of arrays of the first dimension.
-	private final val Dim2Bits = 16                      //The log2 of the maximum size of two dimensional arrays.
+	private final val Dim2Bits = 16                      //The log2 of the maximum size of two-dimensional arrays.
 	private final val MaxDim1  = 1 << Dim1Bits           //The maximum length of a single dimensional array.
-	private final val MaxDim2  = 1 << Dim2Bits           //The maximum length of a two dimensional array.
+	private final val MaxDim2  = 1 << Dim2Bits           //The maximum length of a two-dimensional array.
 	private final val MaxSize1 = 1 << Dim1Bits           //The maximum capacity of a one dimensional buffer (same as MaxDim1).
-	private final val MaxSize2 = MaxDim2 << Dim1Bits     //The maximum capacity of a two dimensional buffer (unsigned).
+	private final val MaxSize2 = MaxDim2 << Dim1Bits     //The maximum capacity of a two-dimensional buffer (unsigned).
 	private final val MaxSize  = MaxSize2                //The maximum buffer size (Int.MaxValue).
-	private final val MinSize1 = 8                       //The minimal length of a one dimensional array.
-	private final val MinSize2 = 8                       //The minimal length of a two dimensional array.
+	private final val MinSize1 = 8                       //The minimal length of a single dimensional array.
+	private final val MinSize2 = 8                       //The minimal length of a two-dimensional array.
 	private final val NewSize1 = 16                      //The initial length of newly created single dimensional arrays.
-	private final val NewSize2 = 16                      //The initial length of newly created two dimensional arrays.
+	private final val NewSize2 = 16                      //The initial length of newly created two-dimensional arrays.
 	private final val Dim1Mask = MaxSize1 - 1            //A mask for the lower Dim1Bits.
 	private final val Dim2Mask = MaxDim2 - 1 << Dim1Bits //A mask for the higher Dim2Bits corresponding to the second dimension index.
 
@@ -2879,7 +2880,7 @@ case object MatrixBuffer extends MatrixBufferFactory(false) {
 
 /** A factory creating $Coll instances which shrink their underlying storage when their fill factor
   * drops below a certain threshold. This threshold varies based on the dimension of the storage array:
-  * for single-dimensional arrays, it is four, but two dimensional arrays require a much lower factor
+  * for single-dimensional arrays, it is four, but two-dimensional arrays require a much lower factor
   * to shrink the ''outer'' array, but release the ''inner'' data arrays more readily.
   * @define coll shrinking matrix buffer
   * @see [[net.noresttherein.sugar.collections.MatrixBuffer$ MatrixBuffer]]

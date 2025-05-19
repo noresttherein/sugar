@@ -1,11 +1,11 @@
 package net.noresttherein.sugar.arrays
 
 import net.noresttherein.sugar.casting.castTypeParamMethods
-import net.noresttherein.sugar.collections.{AbstractCyclicIterator, AbstractIndexedIterator, AbstractReverseCyclicIterator, AbstractReverseIndexedIterator, ArrayIterableOnceOps, ArrayLikeSliceWrapper, CyclicSliceFactory, IArrayLikeSlice, IndexedIterator, IndexedIteratorEquals, ExpandedSliceFactory, Mutability, ReverseCyclicSliceFactory, ReverseSliceFactory, ValIterator}
+import net.noresttherein.sugar.collections.{AbstractCyclicIterator, AbstractIndexedIterator, AbstractReverseCyclicIterator, AbstractReverseIndexedIterator, ArrayIterableOnceOps, ArrayLikeSliceWrapper, CyclicSliceFactory, ExpandedSliceFactory, IArrayLikeSlice, IndexedIterator, IndexedIteratorEquals, Mutability, ReverseCyclicSliceFactory, ReverseSliceFactory, ValIterator}
 import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{illegal_!, noSuch_!, null_!, outOfBounds_!}
 import net.noresttherein.sugar.reflect.Specialized.{Fun2Arg, MultiValue}
-import net.noresttherein.sugar.util.SingletonSerializationProxy
+import net.noresttherein.sugar.util.{SerializableSingleton, SingletonSerializationProxy}
 
 
 
@@ -69,26 +69,23 @@ private[sugar] trait ArrayIteratorOps[@specialized(MultiValue) +T]
   * @define Coll `ArrayIterator`
   * @define coll array iterator
   */
-abstract class ArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] private[arrays]
-               (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
-	extends ExpandedSliceFactory[A, I] with ArrayLikeSliceWrapper[A, I]
+private abstract class AbstractArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] private[arrays]
+                       (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
+	extends SerializableSingleton[ExpandedSliceFactory[A, Iterator]](name, self)
+	   with ExpandedSliceFactory[A, I] with ArrayLikeSliceWrapper[A, I]
 {
 	protected final override def totalSizeOf[E](array :A[E]) :Int = array.length
-//	private[this] val empty = make(Array.emptyObjectArray.asInstanceOf[A[Nothing]])
 	@inline final override def wrap[E](array :A[E]) :I[E] = apply(array)
 
 	override def isImmutable :Boolean = mutability.isImmutable
 	override def isMutable   :Boolean = mutability.isMutable
-
-	override def toString :String = name
-	private def writeReplace :Any = new SingletonSerializationProxy(self)
 }
 
 
 @SerialVersionUID(Ver)
 private class ArrayIteratorFactory[-A[X] <: ArrayLike[X]]
                                   (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
+	extends AbstractArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], from :Int, until :Int) :ArrayIterator[T] =
 		((array :ArrayLike[_]) match {
@@ -109,7 +106,7 @@ private class ArrayIteratorFactory[-A[X] <: ArrayLike[X]]
 @SerialVersionUID(Ver)
 private class GenericArrayIteratorFactory[-A[X] <: ArrayLike[X]]
               (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
+	extends AbstractArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
 {
 	protected final override def make[T](array :A[T], from :Int, until :Int) :ArrayIterator[T] =
 		new ArrayIterator(array.asInstanceOf[Array[T]], from, until, isImmutable)
@@ -119,7 +116,7 @@ private class GenericArrayIteratorFactory[-A[X] <: ArrayLike[X]]
 @SerialVersionUID(Ver)
 private class RefArrayLikeIteratorFactory[-A[X] <: RefArrayLike[X]]
               (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
+	extends AbstractArrayLikeIteratorFactory[A, ArrayIterator](name, mutability, self)
 {
 	protected final override def make[E](array :A[E], from :Int, until :Int) :ArrayIterator[E] =
 		(array :ArrayLike[_]) match {
@@ -213,7 +210,7 @@ private[sugar] final class RefArrayIterator[+T <: AnyRef] private[sugar]
   */
 private sealed abstract class ReverseArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] protected
                               (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseSliceFactory[A, I]
+	extends AbstractArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseSliceFactory[A, I]
 
 
 @SerialVersionUID(Ver)
@@ -361,7 +358,7 @@ private[sugar] final class ReverseRefArrayIterator[+T <: AnyRef] private[sugar](
   */ //consider: allowing to iterate multiple times over the array, treating the index modulo.
 private abstract class CyclicArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] protected
                        (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with CyclicSliceFactory[A, I]
+	extends AbstractArrayLikeIteratorFactory[A, I](name, mutability, self) with CyclicSliceFactory[A, I]
 
 
 @SerialVersionUID(Ver)
@@ -507,7 +504,7 @@ private[sugar] final class CyclicRefArrayIterator[+T <: AnyRef] private[sugar] (
   */
 private sealed abstract class ReverseCyclicArrayLikeIteratorFactory[-A[X] <: ArrayLike[X], +I[X] <: Iterator[X]] private[arrays]
                               (name :String, mutability :Mutability, self: => ExpandedSliceFactory[A, Iterator])
-	extends ArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseCyclicSliceFactory[A, I]
+	extends AbstractArrayLikeIteratorFactory[A, I](name, mutability, self) with ReverseCyclicSliceFactory[A, I]
 
 
 @SerialVersionUID(Ver)

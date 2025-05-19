@@ -20,23 +20,20 @@ private sealed abstract class AbstractArrayLike2IteratorFactory[-A[X] <: ArrayLi
 	extends SerializableSingleton[Slice2DFactory[A @uncheckedVariance, Iterator]](name, self)
 	   with MatrixSliceFactory[A, Iterator]
 {
-	protected override def outerLengthOf[E](source :A[E]) :Int = source.asInstanceOf[Array[E]].length
+	protected override def lengthOf[E](source :A[E]) :Int = source.asInstanceOf[Array[E]].length
 	protected override def get[E](source :A[E], index :Int) :E = source.asInstanceOf[Array[E]](index)
 }
 
 
-private sealed abstract class AbstractMatrixIteratorFactory[-A[X] <: ArrayLike[X]]
-                              (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractArrayLike2IteratorFactory[A](name, self)
-	   with MatrixSliceFactory[A, MatrixIterator]
 
 
 @SerialVersionUID(Ver)
-private class MatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                                   (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractMatrixIteratorFactory[A](name, self)
+private final class MatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
+                                         (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	   with MatrixSliceFactory[A, MatrixIterator]
 {
-	protected final override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
+	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:MatrixIterator[E] =
 		((source :ArrayLike[_]) match {
 			case a :Array[Array[AnyRef]]       => new MatrixIterator(a, from2, from1, size)
@@ -64,17 +61,19 @@ private class MatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
 
 
 @SerialVersionUID(Ver)
-private class RefArrayLikeMatrixIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
-              (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractMatrixIteratorFactory[A](name, self)
+private final class RefArrayLikeMatrixIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
+                                                     (name :String, self: => Slice2DFactory[A, Iterator])
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	   with MatrixSliceFactory[A, MatrixIterator]
 {
-	protected final override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
+	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:MatrixIterator[E] =
 		(source :ArrayLike[_]) match {
 			case _ :Array[AnyRef] => //todo: manually specialize for RefArray
 				new MatrixIterator(source.castParam[Array[E]], from2, from1, size)
 //				new RefMatrixIterator(source.castParam[RefArray[E]], from2, from1, size)
-			case null => null_!("Cannot create a RefArray2Iterator for a null array.")
+			case null =>
+				null_!("Cannot create a RefArray2Iterator for a null array.")
 			case _ =>
 				illegal_!("Cannot create a RefArray2Iterator for non Array[RefArray[T]]: " + errorString(source) + ".")
 		}
@@ -275,16 +274,11 @@ private[sugar] class RefMatrixIterator[+E]
 
 
 
-private sealed abstract class AbstractReverseMatrixIteratorFactory[-A[X] <: ArrayLike[X]]
-                              (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractArrayLike2IteratorFactory[A](name, self)
-	   with ReverseMatrixSliceFactory[A, ReverseMatrixIterator]
-
-
 @SerialVersionUID(Ver)
 private final class ReverseMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
                     (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractReverseMatrixIteratorFactory[A](name, self)
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	   with ReverseMatrixSliceFactory[A, ReverseMatrixIterator]
 {
 	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:ReverseMatrixIterator[E] =
@@ -424,16 +418,11 @@ private[sugar] class ReverseMatrixIterator[@specialized(MultiValue) +E]
 
 
 
-private sealed abstract class AbstractCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                              (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractArrayLike2IteratorFactory[A](name, self)
-	   with CyclicMatrixSliceFactory[A, CyclicMatrixIterator]
-
-
 @SerialVersionUID(Ver)
 private final class CyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
                     (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractCyclicMatrixIteratorFactory[A](name, self)
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	   with CyclicMatrixSliceFactory[A, CyclicMatrixIterator]
 {
 	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:CyclicMatrixIterator[E] =
@@ -564,16 +553,11 @@ private[sugar] class CyclicMatrixIterator[@specialized(MultiValue) +E]
 
 
 
-private sealed abstract class AbstractReverseCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                              (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractArrayLike2IteratorFactory[A](name, self)
-	  with ReverseCyclicMatrixSliceFactory[A, ReverseCyclicMatrixIterator]
-
-
 @SerialVersionUID(Ver)
 private final class ReverseCyclicMatrixIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
                     (name :String, self: => Slice2DFactory[A, Iterator])
-	extends AbstractReverseCyclicMatrixIteratorFactory[A](name, self)
+	extends AbstractArrayLike2IteratorFactory[A](name, self)
+	  with ReverseCyclicMatrixSliceFactory[A, ReverseCyclicMatrixIterator]
 {
 	protected override def make[E](source :A[A[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
 			:ReverseCyclicMatrixIterator[E] =

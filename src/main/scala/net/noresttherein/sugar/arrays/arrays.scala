@@ -6,7 +6,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import net.noresttherein.sugar.arrays.ReverseCyclicMatrixIterator
 import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
 import net.noresttherein.sugar.collections.Mutability.{Immutable, Mutable, Unspecified}
-import net.noresttherein.sugar.collections.{ArrayLikeSliceFactory, ExpandedSliceFactory, MatrixSliceFactory, ValIterator}
+import net.noresttherein.sugar.collections.{ArrayLikeSliceFactory, CuboidSliceFactory, ExpandedSliceFactory, MatrixSliceFactory, ValIterator}
 import net.noresttherein.sugar.vars.Maybe
 /* Package dependencies:
  *   - optional/helper:
@@ -198,6 +198,32 @@ package object arrays extends extensions {
 
 
 	/** A two-dimensional array. */
+	type ArrayLike2[E] = ArrayLike[ArrayLike[E]]
+	/** A three-dimensional array. */
+	type ArrayLike3[E] = ArrayLike[ArrayLike[ArrayLike[E]]]
+	/** A four dimensional array. */
+	type ArrayLike4[E] = ArrayLike[ArrayLike[ArrayLike[ArrayLike[E]]]]
+	/** A five dimensional array. */
+	type ArrayLike5[E] = ArrayLike[ArrayLike[ArrayLike[ArrayLike[ArrayLike[E]]]]]
+	/** A six dimensional array. */
+	type ArrayLike6[E] = ArrayLike[ArrayLike[ArrayLike[ArrayLike[ArrayLike[ArrayLike[E]]]]]]
+	/** A seven dimensional array. */
+	type ArrayLike7[E] = ArrayLike[ArrayLike[ArrayLike[ArrayLike[ArrayLike[ArrayLike[ArrayLike[E]]]]]]]
+
+	/** A two-dimensional array. */
+	type IArrayLike2[E] = IArrayLike[IArrayLike[E]]
+	/** A three-dimensional array. */
+	type IArrayLike3[E] = IArrayLike[IArrayLike[IArrayLike[E]]]
+	/** A four dimensional array. */
+	type IArrayLike4[E] = IArrayLike[IArrayLike[IArrayLike[IArrayLike[E]]]]
+	/** A five dimensional array. */
+	type IArrayLike5[E] = IArrayLike[IArrayLike[IArrayLike[IArrayLike[IArrayLike[E]]]]]
+	/** A six dimensional array. */
+	type IArrayLike6[E] = IArrayLike[IArrayLike[IArrayLike[IArrayLike[IArrayLike[IArrayLike[E]]]]]]
+	/** A seven dimensional array. */
+	type IArrayLike7[E] = IArrayLike[IArrayLike[IArrayLike[IArrayLike[IArrayLike[IArrayLike[IArrayLike[E]]]]]]]
+
+	/** A two-dimensional array. */
 	type Array2[E] = Array[Array[E]]
 	/** A three-dimensional array. */
 	type Array3[E] = Array[Array[Array[E]]]
@@ -222,6 +248,19 @@ package object arrays extends extensions {
 	type IArray6[E] = IArray[IArray[IArray[IArray[IArray[IArray[E]]]]]]
 	/** A seven dimensional immutable array. */
 	type IArray7[E] = IArray[IArray[IArray[IArray[IArray[IArray[IArray[E]]]]]]]
+
+	/** A two-dimensional box array. */
+	type RefArrayLike2[E] = RefArrayLike[RefArrayLike[E]]
+	/** A three-dimensional box array. */
+	type RefArrayLike3[E] = RefArrayLike[RefArrayLike[RefArrayLike[E]]]
+	/** A four dimensional box array. */
+	type RefArrayLike4[E] = RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[E]]]]
+	/** A five dimensional box array. */
+	type RefArrayLike5[E] = RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[E]]]]]
+	/** A six dimensional box array. */
+	type RefArrayLike6[E] = RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[E]]]]]]
+	/** A seven dimensional box array. */
+	type RefArrayLike7[E] = RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[RefArrayLike[E]]]]]]]
 
 	/** A two-dimensional box array. */
 	type RefArray2[E] = RefArray[RefArray[E]]
@@ -392,13 +431,30 @@ package object arrays extends extensions {
 		new MatrixIteratorFactory[ArrayLike]("MatrixIterator", MatrixIterator)
 
 	private[sugar] val ReverseMatrixIterator :MatrixSliceFactory[ArrayLike, ValIterator.Buffered] =
-		new ReverseMatrixIteratorFactory[ArrayLike]("ReverseMatrixIterator", MatrixIterator)
+		new ReverseMatrixIteratorFactory[ArrayLike]("ReverseMatrixIterator", ReverseMatrixIterator)
 
 	private[sugar] val CyclicMatrixIterator  :MatrixSliceFactory[ArrayLike, ValIterator.Buffered] =
 		new CyclicMatrixIteratorFactory[ArrayLike]("CyclicMatrixIterator", CyclicMatrixIterator)
 
 	private[sugar] val ReverseCyclicMatrixIterator :MatrixSliceFactory[ArrayLike, ValIterator.Buffered] =
 		new ReverseCyclicMatrixIteratorFactory[ArrayLike]("ReverseCyclicMatrixIterator", ReverseCyclicMatrixIterator)
+
+	
+	
+	private[sugar] val CuboidIterator :CuboidSliceFactory[ArrayLike, ValIterator.Buffered] =
+		new CuboidIteratorFactory[ArrayLike]("CuboidIterator", CuboidIterator)
+
+	private[sugar] val RefCuboidIterator :CuboidSliceFactory[RefArrayLike, ValIterator.Buffered] =
+		new RefCuboidIteratorFactory[RefArrayLike]("RefCuboidIterator", RefCuboidIterator)
+
+	private[sugar] val ReverseCuboidIterator :CuboidSliceFactory[ArrayLike, ValIterator.Buffered] =
+		new ReverseCuboidIteratorFactory[ArrayLike]("ReverseCuboidIterator", ReverseCuboidIterator)
+
+	private[sugar] val CyclicCuboidIterator  :CuboidSliceFactory[ArrayLike, ValIterator.Buffered] =
+		new CyclicCuboidIteratorFactory[ArrayLike]("CyclicCuboidIterator", CyclicCuboidIterator)
+
+	private[sugar] val ReverseCyclicCuboidIterator :CuboidSliceFactory[ArrayLike, ValIterator.Buffered] =
+		new ReverseCyclicCuboidIteratorFactory[ArrayLike]("ReverseCyclicCuboidIterator", ReverseCyclicCuboidIterator)
 
 
 	private[arrays] final val RelayArrayFactory :Maybe[ArrayLikeSliceFactory[IArrayLike, IndexedSeq]] =

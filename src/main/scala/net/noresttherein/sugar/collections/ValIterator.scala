@@ -8,8 +8,10 @@ import scala.collection.StepperShape.{ByteShape, CharShape, DoubleShape, FloatSh
 import scala.collection.{BufferedIterator, Stepper, StepperShape}
 
 import net.noresttherein.sugar.collections.ValIterator.{BooleanJavaIteratorAdapter, ByteJavaIteratorAdapter, CharJavaIteratorAdapter, DoubleJavaIteratorAdapter, FloatJavaIteratorAdapter, IntJavaIteratorAdapter, JavaIteratorAdapter, LongJavaIteratorAdapter, ShortJavaIteratorAdapter}
+import net.noresttherein.sugar.collections.util.errorString
 import net.noresttherein.sugar.exceptions.{noSuch_!, unsupported_!}
 import net.noresttherein.sugar.extensions.castingMethods
+import net.noresttherein.sugar.oops
 import net.noresttherein.sugar.reflect.Specialized.Fun2Arg
 import net.noresttherein.sugar.vars.{Maybe, Missing, Sure, Unsure}
 import net.noresttherein.sugar.vars.Maybe.{No, Yes}
@@ -17,7 +19,7 @@ import net.noresttherein.sugar.vars.Maybe.{No, Yes}
 
 
 
-//todo: extend IterableOnceOps[E, ValIterator, ValIterator[E]]
+//todo: extend IterableOnceOps[E, ValIterator, ValIterator[E]]; rename to SpecIterator?
 /**
   * @author Marcin Mościcki
   */ //consider: specializing for Boolean
@@ -62,32 +64,6 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] { outer =>
 		override def toString :String = outer.toString + (if (truth) ".filter(" else ".filterNot(") + p + ")"
 	}
 
-/*
-	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
-		if (len <= 0 || start >= xs.length || !hasNext)
-			0
-		else {
-			try specCopyToArray(xs.asInstanceOf[Array[E]], start, len) catch {
-				case _ :ClassCastException | _ :ArrayStoreException =>
-					var i = start
-					val end = start + math.min(len, xs.length - math.max(start, 0))
-					while (i < end && hasNext) {
-						xs(i) = next()
-						i += 1
-					}
-					i - start
-			}
-		}
-	private def specCopyToArray(xs :Array[E @uncheckedVariance], start :Int, len :Int) :Int = {
-		var i = start
-		val end = start + math.min(len, xs.length - math.max(start, 0))
-		while (i < end && hasNext) {
-			xs(i) = next()
-			i += 1
-		}
-		i - start
-	}
-*/
 
 	override def buffered :ValIterator.Buffered[E] = new ValIterator.Buffered[E] {
 		private[this] var hd :E = _
@@ -123,6 +99,32 @@ trait ValIterator[@specialized(AllNumeric) +E] extends Iterator[E] { outer =>
 		case Yes(ShortShape)     => new ShortJavaIteratorAdapter(this.asInstanceOf[ValIterator[Short]])
 		case _ /* Boolean */     => new BooleanJavaIteratorAdapter(this.asInstanceOf[ValIterator[Boolean]])
 	}).asInstanceOf[J]
+
+	override def copyToArray[B >: E](xs :Array[B], start :Int, len :Int) :Int =
+		if (len < 0 || start >= xs.length || len <= 0 || !hasNext)
+			0
+		else if (start < 0)
+			throw new ArrayIndexOutOfBoundsException(
+				toString + ".copyToArray(" + errorString(xs) + ", " + start + ", " + len + ")"
+			)
+		else
+			try specCopyToArray(xs.asInstanceOf[Array[E]], start, len) catch {
+				case _ :ClassCastException => super.copyToArray(xs, start, len)
+			}
+
+	private[this] def specCopyToArray(xs :Array[E], start :Int, len :Int) :Int = {
+		val max = math.min(start, xs.length - len) + len
+		var i    = start
+		while (i < max && hasNext) {
+			val elem :E = try next() catch {
+				//Guard against ClassCastException so we know in copyToArray that class cast must have come from xs.
+				case e :ClassCastException => oops(toString + ".next threw ClassCastException", e)
+			}
+			xs(i) = elem
+			i += 1
+		}
+		i - start
+	}
 }
 
 

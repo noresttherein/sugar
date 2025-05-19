@@ -35,7 +35,7 @@ abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 
 	private def clone[X](a :Array2[X]) :Array2[X] = {
 		val res = a.clone()
-		var i = a.length - 1
+		var i = a.length
 		while (i > 0) {
 			i -= 1
 			res(i) = a(i).clone()
@@ -65,25 +65,25 @@ abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 
 
 	protected def expectSlice[X](source :Array2[X], from2 :Int, from1 :Int, until2 :Int, until1 :Int) :Seq[X] =
-		if (until2 < 0 || source.length == 0 || source(0).length == 0)
-			Seq.empty
-		else if (from2 < 0)
+		if (from2 < 0)
 			expectSlice(source, 0, 0, until2, until1)
+		else if (until2 < 0 || source.length == 0 || source(0).length == 0)
+			Seq.empty
 		else {
-			val len       = source(0).length
 			val start2    = clip(from2, source.length)
 			val end2      = clip(until2, source.length)
+			val len1      = source(0).length
 			val start1    =
 				if (from1 < 0) -1
 				else if (from2 >= source.length) 0
-				else if (from1 >= len) len
+				else if (from1 >= len1) len1
 				else from1
 			val end1      =
 				if (until1 < 0) -1
 				else if (until2 >= source.length) 0
-				else if (until1 > len) len
+				else if (until1 > len1) len1
 				else until1
-			expectSlice(source, start2 * len + start1, end2 * len + end1)
+			expectSlice(source, start2 * len1 + start1, end2 * len1 + end1)
 		}
 	//We can't just easily delegate to expectSlice without checking for overflows and underflows, at which point
 	// we did most of the work anyway.

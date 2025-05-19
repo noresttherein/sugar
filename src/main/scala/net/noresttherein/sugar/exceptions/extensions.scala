@@ -144,7 +144,7 @@ object extensions extends extensions {
 		  *   1. If the above fails, the cause of the failure, containing `msg` as a part of its message,
 		  *      is added as a [[Throwable.addSuppressed suppressed]] exception to this instance,
 		  *      and the method returns `this`.
-		  */ //todo: always use addSuppressed(RethrowContext())
+		  */ //todo: always use addSuppressed(RethrowContext()); todo: remove the stack trace or set it from self
 		def addInfo(msg :String) :Throwable = pushErrorMessage(msg)(self)
 
 		/** Formats the whole stack trace of this exception as a `String`

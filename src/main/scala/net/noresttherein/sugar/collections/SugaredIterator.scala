@@ -51,9 +51,9 @@ trait SugaredIterator[+E] extends Iterator[E] {
 
 	@inline final def safeCopyToArray[U >: E](xs :Array[U]) :Int = safeCopyToArray(xs, 0, Int.MaxValue)
 	@inline final def safeCopyToArray[U >: E](xs :Array[U], start :Int) :Int = safeCopyToArray(xs, start, Int.MaxValue)
-	def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = super.copyToArray(xs, start, len)
+	def safeCopyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = super[Iterator].copyToArray(xs, start, len)
 
-	override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = super.copyToArray(xs, start, len)
+//	override def copyToArray[U >: E](xs :Array[U], start :Int, len :Int) :Int = super.copyToArray(xs, start, len)
 }
 
 abstract class AbstractSugaredIterator[+E] extends AbstractIterator[E] with SugaredIterator[E]

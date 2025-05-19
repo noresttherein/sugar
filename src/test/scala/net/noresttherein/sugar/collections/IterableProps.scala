@@ -559,7 +559,7 @@ abstract class SpecificIterableProps[C[T] <: IterableOps[T, Any1, C[T]],
 
 	private def copyToArrayProp[T :Arbitrary :ClassTag](ordered :Iterable[T], subject :C[T]) :Prop =
 		forAll { (capacity :Short, start :Int, len :Int) =>
-			//Semantics of copyToArray in the standard implementation are inconsistent
+			//Semantics of copyToArray in the standard implementations are inconsistent
 			// and susceptible to arithmetic overflow, so this is an approximation.
 			val specific = Array.fill(capacity.toInt.abs)(Arbitrary.arbitrary[T].sample.get)
 			val generic  = specific.map[Any](_.toString)

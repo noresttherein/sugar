@@ -25,7 +25,7 @@ trait CyclicIndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]] extends Inde
 		val len  = lengthOf(source)
 		val size = math.max(0, math.min(len, length))
 		val rem  = mod(first, len)
-		val suffix = iterator(source).drop(rem).take(length)
+		val suffix = iterator(source).drop(rem).take(length) //The easiest way to avoid overflow.
 		(if (len - rem >= size) suffix else suffix ++ iterator(source).take(size - (len - rem))).toSeq
 	}
 
