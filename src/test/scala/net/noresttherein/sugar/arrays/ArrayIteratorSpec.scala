@@ -63,13 +63,23 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 
 	protected def forAllInputs(property :IteratorProperty) :Prop
 
+	protected def format[X](itr: => Iterator[X]) :String =
+		try itr.mkString("Iterator(", ", ", ")") catch {
+			case e :scala.Exception => e.toString + "\n" + e.stackTraceString
+		}
+
+	protected def guard(prop: => Prop) :Prop =
+		try prop catch {
+			case e :scala.Exception =>
+				Prop(false) :| e.toString + "\n" + e.stackTraceString
+		}
 
 	abstract class IteratorProperty(val propName :String) {
 		def apply[X :ClassTag :Ordering :Arbitrary](source :S[X]) :Prop = forAll { (from :Int, until :Int) =>
 			val expect = expectSlice(source, from, until)
-			apply(expect, factory.slice(source, from, until)) lbl
+			guard(apply(expect, factory.slice(source, from, until))) lbl
 				s"$name.slice(${contents(source)}, $from, $until) == " +
-					factory.slice(source, from, until).mkString("Iterator(", ", ", ")")
+					format(factory.slice(source, from, until))
 		}
 		def apply[X :ClassTag :Ordering :Arbitrary](expect :Seq[X], iterator: => I[X]) :Prop =
 			expect sameElements iterator
@@ -84,10 +94,13 @@ abstract class IndexedIteratorProps[S[_], I[X] <: BufferedIterator[X]]
 				try {
 					val expect = expectApply(source, first, length)
 					apply(expect, factory(source, first, length)) lbl
-						s"$name(${ contents(source) }, $first, $length) == " +
-							factory(source, first, length).mkString("Iterator(", ", ", ")") + "\n!= " + expect
+						s"$name(${contents(source)}, $first, $length) == " +
+							format(factory(source, first, length)) + "\n!= " + expect
 				} catch {
-					case e :scala.Exception => e.printStackTrace(System.out); throw e
+					case e :scala.Exception =>
+						System.err.println(s"$name(${contents(source)},\n$first, $length)")
+						e.printStackTrace(System.err)//; throw e
+						Prop(false)
 				}
 			}
 	}

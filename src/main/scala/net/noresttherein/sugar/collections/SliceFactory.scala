@@ -464,73 +464,57 @@ trait MatrixSliceFactory[-S[_], +C[+_]]
 	// are MutableArray (we won't create an instance for that type) and `Array`.
 	@throws[NullPointerException]("if source is null, or from2 < array.length and array(from2 max 0) is null.")
 	override def slice[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :C[E] = {
-		//todo: rewrite it in the manner after CuboidSliceFactory
-		//Initially I tried to implement it as @tailrec, but for some reason I could not return make(...)
-		// from within it ('contains a recursive call targeting super' compile error).
-		//The code is considerably more complex than the specification code because we refrain from dereferencing
-		// lower dimension arrays not containing the first element of the slice (as they may be null).
-		// We also avoid converting the index into a single 'flat' index as it might conceivably cause overflows.
 		val length2 = lengthOf(source)
-		var length1 = -1
-		//This is far from an exhausting condition for an empty slice, but we need to provide at least some way
-		// for the caller to create a valid iterator without an error even if all inner arrays are null.
-		if (length2 == 0 | from2 == until2 & from1 >= until1)
+		if (length2 == 0 | until2 < 0 | until2 == 0 & until1 <= 0)
 			return empty(source)
 		var i2 = from2
 		var i1 = from1
 		var j2 = until2
 		var j1 = until1
-		while (true) {
-			if (j2 < 0 | length1 == 0)
+
+		if (i2 < 0 | i2 == 0 & i1 <= 0) {
+			i2 = 0
+			i1 = 0
+		} else if (i1 < 0)
+			i2 = math.min(length2, i2) - 1
+		else if (i2 >= length2)
+			return empty(source)
+		if (j1 <= 0)
+			j2 = math.min(length2, j2) - 1
+		else if (j2 >= length2) {
+			j2 = length2 - 1
+			j1 = Int.MaxValue
+		}
+		if (j2 < i2)
+			return empty(source)
+		val a1 = get(source, j2)
+		val length1 = lengthOf(a1)
+		if (length1 == 0)
+			return empty(source)
+
+		if (i1 < 0)
+			i1 = length1 - 1
+		else if (i1 >= length1) {
+			i1 = 0
+			if (i2 == length2 - 1)
 				return empty(source)
-			if (i2 < 0) {
-				i2 = 0
-				i1 = 0
-			} else if (i1 < 0)
-				if (i2 == 0)
-					i1 = 0
-				else {
-					i2 = math.min(i2, length2) - 1
-					if (length1 == -1) //We'll check for length1 == 0 the first thing in the next iteration.
-						length1 = lengthOf(get(source, i2))
-					i1 = length1 - 1
-				}
-			else if (j1 < 0)
+			i2 += 1
+		}
+		if (j1 < 0)
+			if (length1 == 1) {
 				if (j2 == 0)
 					return empty(source)
-				else {
-					j2 = math.min(j2, length2) - 1
-					if (length1 == -1)
-						length1 = lengthOf(get(source, j2))
-					j1 = length1 - 1
-				}
-			else if (i2 >= length2)
-				return empty(source)
-			else if (j2 >= length2) {
-				j2 = length2 - 1
-				if (length1 == -1)
-					length1 = lengthOf(get(source, i2))
-				j1 = length1
-			} else {
-				if (length1 == -1)
-					length1 = lengthOf(get(source, i2))
-				if (i1 >= length1) {
-					i2 += 1
-					i1  = 0
-				} else if (j1 == 0) {
-					j1 = length1
-					j2 -= 1
-				} else {
-					if (j1 > length1)
-						j1 = length1
-					if (j2 < i2 | i2 == j2 & j1 <= i1)
-						return empty(source)
-					//consider: adding length1 as a parameter
-					return make(source, i2, i1, j2, j1)
-				}
-			}
-		}
-		??!
+				j1 = 1
+				j2 -= 1
+			} else
+				j1 = length1 - 1
+		else if (j1 == 0 | j1 > length1)
+			j1 = length1
+
+		if (j2 < i2 | j2 == i2 & j1 <= i1)
+			return empty(source)
+
+		make(length1, source, i2, i1, j2, j1)
 	}
 
 	/** A $Coll flattening a slice of an input $source.
@@ -567,10 +551,10 @@ trait MatrixSliceFactory[-S[_], +C[+_]]
 		val until1  = until0 - length1 * until2
 		if (from0 >= until0)
 			empty(source)
-		else if (until1 == 0) //todo: add length1 parameter
-			make(source, from2.toInt, from1.toInt, until2.toInt - 1, length1)
+		else if (until1 == 0)
+			make(length1, source, from2.toInt, from1.toInt, until2.toInt - 1, length1)
 		else
-			make(source, from2.toInt, from1.toInt, until2.toInt, until1.toInt)
+			make(length1, source, from2.toInt, from1.toInt, until2.toInt, until1.toInt)
 		}
 
 	/** A $Coll flattening a slice of an input $source.
@@ -623,57 +607,38 @@ trait MatrixSliceFactory[-S[_], +C[+_]]
 	  */
 	@throws[NullPointerException]("if source is null or from2 < source.length and source(from2) is null.")
 	override def apply[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :C[E] = {
-		//todo: rewrite it in the manner after CuboidSliceFactory
-		//Initially I tried to implement it as @tailrec, but for some reason I could not return make(...)
-		// from within it ('contains a recursive call targeting super' compile error).
-		//The code is considerably more complex than the specification code because we refrain from dereferencing
-		// lower dimension arrays not containing the first element of the slice (as they may be null).
-		// We also avoid converting the index into a single 'flat' index as it might conceivably cause overflows.
 		var idx2 = from2
 		var idx1 = from1
 		val length2 = lengthOf(source)
 		if (size <= 0 | length2 == 0)
 			return empty(source)
-		var length1 = -1
-		while (true) { //Clip idx2 and idx1 to range.
-			if (length1 == 0)
-				return empty(source)
-			else if (idx2 < 0) {
-				idx2 = 0
-				idx1 = 0
-			} else if (idx1 < 0)
-				if (idx2 == 0)
-					idx1 = 0
-				else {
-					idx2 = math.min(length2, idx2) - 1
-					if (length1 == -1)
-						length1 = lengthOf(get(source, idx2))
-					idx1 = length1 - 1
-				}
-			else if (idx2 >= length2)
-				return empty(source)
-			else {
-				if (length1 == -1)
-					length1 = lengthOf(get(source, idx2))
-				if (idx1 >= length1)  //Covers also length1 == 0 because idx1 >= 0.
-					if (idx2 == length2 - 1)
-						return empty(source)
-					else {
-						//This case is problematic because we have accessed source(idx2)
-						// despite it not being actually used by the iterator, and thus conceivably null.
-						// The only way to avoid is to not increase idx2, but instead clip idx1 to length1 - 1,
-						// but it would be unintuitive and quite inconsistent with slice.
-						// At the minimum, we should document this issue.
-						idx2 += 1
-						idx1 = 0
-					}
-				else {
-					val size0 = math.min(size, (length2 - idx2).toLong * length1 - idx1).toInt
-					return make(source, idx2, idx1, size0)
-				}
-			}
+
+		if (idx2 < 0 | idx2 == 0 & idx1 <= 0) {
+			idx2 = 0
+			idx1 = 0
+		} else if (idx1 < 0)
+			idx2 = math.min(idx2, length2) - 1
+		else if (idx2 >= length2) {
+			idx2 = length2 - 1
+			idx1 = Int.MaxValue
 		}
-		??!
+
+		var a1 = get(source, idx2)
+		if (a1 == null & idx2 < length2 - 1)
+			a1 = get(source, idx2 + 1)
+		if (a1 == null & idx2 > 0)
+			a1 = get(source, idx2 - 1)
+		val length1 = lengthOf(a1)
+		if (length1 == 0)
+			return empty(source)
+
+		if (idx1 < 0)
+			idx1 = length1 - 1
+		else if (idx1 >= length1) {
+			idx2 += 1
+			idx1 = 0
+		}
+		apply(length1, source, idx2, idx1, size)
 	}
 
 	/** A $Coll containing `size` elements of `source` starting with `source(from / length1)(from % length1)`.
@@ -725,9 +690,17 @@ trait MatrixSliceFactory[-S[_], +C[+_]]
 		}
 	}
 
+	protected def apply[E](length1 :Int, source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :C[E] = {
+		val length2 = lengthOf(source)
+		if (from2 >= length2 | size <= 0)
+			return empty(source)
+		val available = (length2 - from2) * length1.toLong - from1
+		make(source, from2, from1, math.min(size, available).toInt)
+	}
 
-	protected def make[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :C[E] =
-		make(source, from2, from1, (until2 - from2) * lengthOf(get(source, from2)) + until1 - from1)
+
+	protected def make[E](length1 :Int, source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :C[E] =
+		make(source, from2, from1, (until2 - from2) * length1 + until1 - from1)
 
 	protected def make[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :C[E]
 
@@ -770,12 +743,9 @@ private[sugar] trait ReverseMatrixSliceFactory[-S[_], +C[+_]]
 	extends MatrixSliceFactory[S, C]
 	   with ReverseSizedSliceFactory[Pow[S]#_2 @uncheckedVariance, C]
 {
-	protected override def make[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int)
-		:C[E] =
-	{
-		val innerLength = lengthOf(get(source, from2))
-		make(source, until2, until1 - 1, (until2 - from2) * innerLength - from1 + until1)
-	}
+	protected override def make[E](length1 :Int, source :S[S[E]] @uncheckedVariance,
+	                               from2 :Int, from1 :Int, until2 :Int, until1 :Int) :C[E] =
+		make(source, until2, until1 - 1, (until2 - from2) * length1 - from1 + until1)
 
 	/** A $Coll containing `size` elements of `source` preceding and including `source(from2)(from1)`, in reverse order.
 	  *   - If `size < 0` or `source.size == 0` then an empty $coll is returned immediately.
@@ -798,43 +768,23 @@ private[sugar] trait ReverseMatrixSliceFactory[-S[_], +C[+_]]
 	  * @param from1 The index in `source(from2)` of the first included element.
 	  * @param size  The maximum number of elements in the returned $coll.
 	  */
-	override def apply[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :C[E] = {
+	override def apply[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :C[E] =
+		if (from2 < 0 | from2 == 0 & from1 < 0)
+			empty(source)
+		else
+			super.apply(source, from2, from1, size)
+
+	protected override def apply[E](length1 :Int, source :S[S[E]] @uncheckedVariance,
+	                                from2 :Int, from1 :Int, size :Int) :C[E] =
+	{
 		val length2 = lengthOf(source)
-		if (size <= 0 | length2 == 0)
-			return empty(source)
-		var length1 = -1
-		var i2 = from2
-		var i1 = from1
-		while (true) {
-			if (i2 < 0 | length1 == 0)
-				return empty(source)
-			if (i1 < 0)
-				if (i2 == 0)
-					return empty(source)
-				else {
-					i2 = math.min(i2, length2) - 1
-					if (length1 == -1)
-						length1 = lengthOf(get(source, i2))
-					i1 = length1 - 1
-				}
-			else if (i2 >= length2) {
-				i2 = length2 - 1
-				if (length1 == -1)
-					length1 = lengthOf(get(source, i2))
-				i1 = length1 - 1
-			} else {
-				if (length1 == -1)
-					length1 = lengthOf(get(source, i2))
-				if (i1 >= length1) {
-					i2 += 1
-					i1 = 0
-				} else {
-					val size0 = math.min(size, i2.toLong * length1 + i1 + 1).toInt
-					return make(source, i2, i1, size0)
-				}
-			}
-		}
-		??!
+		val size0 = math.min(from2.toLong * length1 + from1 + 1, size).toInt
+		if (size0 <= 0)
+			empty(source)
+		else if (from2 >= length2)
+			make(source, length2 - 1, length1 - 1, math.min(size, length2.toLong * length1).toInt)
+		else
+			make(source, from2, from1, size0)
 	}
 }
 
@@ -858,34 +808,57 @@ private[sugar] trait AbstractCyclicMatrixSliceFactory[-S[_], +C[+_]]
 	override def slice[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int) :C[E] = {
 		val length2 = lengthOf(source)
 		if (length2 == 0)
-			empty(source)
-		else {
-			//We need to treat the negative case separately because the expression would overflow for positive values.
-			val length2L         = length2.toLong
-			val length2Multiple  = length2L << 32 //A multiple greater than Int.MaxValue * 2 to assure positive signs.
-			var clippedFrom2     = (length2Multiple + from2) % length2L
-			var clippedUntil2    = (length2Multiple + until2) % length2L
-			var clippedFrom1     = math.max(from1, 0)
-			var clippedUntil1    = math.max(until1, 0)
-			val length1          = lengthOf(get(source, clippedFrom2.toInt))
-			var from2Adjustment  = 0L
-			if (from1 >= length1) {
-				clippedFrom2 = (clippedFrom2 + 1) % length2L
-				clippedFrom1 = 0
-				from2Adjustment = 1L
-			}
-			var until2Adjustment = 0L
-			if (until1 >= length1) {
-				clippedUntil2 = (clippedUntil2 + 1) % length2L
-				clippedUntil1 = 0
-				until2Adjustment = 1L
-			}
-			if (length1 == 0 || from2 + from2Adjustment == until2 + until2Adjustment && clippedFrom1 == clippedUntil1)
-				empty(source)
-			else
-				make(source, clippedFrom2.toInt, clippedFrom1, clippedUntil2.toInt, clippedUntil1)
+			return empty(source)
+		var i2 = from2 % length2
+		var i1 = from1
+		var j2 = until2 % length2
+		var j1 = until1
+		if (i2 < 0)
+			i2 += length2
+		if (j2 < 0)
+			j2 += length2
+		var deltaFrom  = 0
+		var deltaUntil = 0
+		if (i1 < 0) {
+			i2 = if (i2 == 0) length2 - 1 else i2 - 1
+			deltaFrom = -1
 		}
+		if (j1 <= 0) {
+			j2 = if (j2 == 0)  length2 - 1 else j2 - 1
+			deltaUntil = -1
+		}
+
+		var a1 = get(source, j2)
+		if (a1 == null)
+			a1 = get(source, (j2 + 1) % length2)
+		val length1 = lengthOf(a1)
+		if (length1 == 0)
+			return empty(source)
+
+		if (i1 < 0)
+			i1 = length1 - 1
+		else if (i1 >= length1) {
+			i2 = (i2 + 1) % length2
+			deltaFrom = 1
+			i1 = 0
+		}
+
+		if (j1 < 0) {
+			if (length1 == 1) {
+				j1 = 1
+				j2 = if (j2 == 0) length2 - 1 else j2 - 1
+				deltaUntil = -2
+			} else
+				j1 = length1 - 1
+		} else if (j1 == 0 | j1 > length1)
+			j1 = length1
+		val from0  = (from2.toLong + deltaFrom) * length1 + i1
+		val until0 = (until2.toLong + deltaUntil) * length1 + j1
+		if (from0 == until0)
+			return empty(source)
+		make(length1, source, i2, i1, j2, j1)
 	}
+
 	override def slice[E](length1 :Int, source :S[S[E]] @uncheckedVariance, from :Int, until :Int) :C[E] =
 		if (length1 == 0 || from == until)
 			empty(source)
@@ -904,28 +877,31 @@ private[sugar] trait AbstractCyclicMatrixSliceFactory[-S[_], +C[+_]]
 			val until1 = until0 - until2 * length1
 			if (until2 < 0)
 				until2 += length2
-			make(source, from2, from1, until2, until1)
+			make(length1, source, from2, from1, until2, until1)
 		}
 
 	override def apply[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int) :C[E] = {
-		val outerLength = lengthOf(source)
-		if (outerLength == 0 || size <= 0)
-			empty(source)
-		else {
-			val clippedFrom2 =
-				if (from2 >= 0) from2 % outerLength
-				else (outerLength + from2 % outerLength) % outerLength
-			val innerLength  = lengthOf(get(source, clippedFrom2))
-			if (innerLength == 0)
-				empty(source)
-			else if (from1 >= innerLength)
-				apply(source, clippedFrom2 + 1, 0, size)
-			else {
-				val totalLength  = outerLength * innerLength
-				val clippedSize  = math.max(0, math.min(size, totalLength))
-				make(source, clippedFrom2, math.max(0, from1), clippedSize)
-			}
+		val length2 = lengthOf(source)
+		if (length2 == 0 | size <= 0)
+			return empty(source)
+		var idx2 = from2 % length2
+		if (idx2 < 0)
+			idx2 += length2
+		var idx1 = from1
+		if (idx1 < 0)
+			idx2 = if (idx2 == 0) length2 - 1 else idx2 - 1
+		val a1 = get(source, idx2)
+		val length1 = lengthOf(a1)
+		if (length1 == 0)
+			return empty(source)
+
+		if (idx1 < 0)
+			idx1 = length1 - 1
+		else if (idx1 >= length1) {
+			idx2 = (idx2 + 1) % length2
+			idx1 = 0
 		}
+		make(source, idx2, idx1, math.min(size, length2.toLong * length1).toInt)
 	}
 	override def apply[E](length1 :Int, source :S[S[E]] @uncheckedVariance, from :Int, size :Int) :C[E] = {
 		val length2 = lengthOf(source)
@@ -934,13 +910,22 @@ private[sugar] trait AbstractCyclicMatrixSliceFactory[-S[_], +C[+_]]
 		else {
 			val totalLength = length2.toLong * length1
 			val from0 =
-				if (from < 0) totalLength + from % totalLength
+				if (from < 0) (totalLength + from % totalLength) % totalLength
 				else from % totalLength
 			val from2 = from0 / length1
 			val from1 = from0 - from2 * length1
-			apply(source, from2.toInt, from1.toInt, size)
+			make(source, from2.toInt, from1.toInt, math.min(size, totalLength).toInt)
 		}
 	}
+	protected override def apply[E](length1 :Int, source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, size :Int)
+			:C[E] =
+	{
+		val length2 = lengthOf(source)
+		if (size <= 0)
+			return empty(source)
+		make(source, from2, from1, math.min(size, length2.toLong * length1).toInt)
+	}
+
 }
 
 
@@ -948,17 +933,16 @@ private[sugar] trait CyclicMatrixSliceFactory[-S[_], +C[+_]]
 	extends AbstractCyclicMatrixSliceFactory[S, C]
 	   with CyclicSliceFactory[Pow[S]#_2 @uncheckedVariance, C]
 {
-	protected override def make[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int)
-			:C[E] =
+	protected override def make[E](length1 :Int, source :S[S[E]] @uncheckedVariance,
+	                               from2 :Int, from1 :Int, until2 :Int, until1 :Int) :C[E] =
 	{
-		val outerLength = lengthOf(source).toLong
-		val innerLength = lengthOf(get(source, from2)).toLong
-		val from = from2 * innerLength + from1
-		val until = until2 * innerLength + until1
+		val length2 = lengthOf(source).toLong
+		val from = from2 * length1.toLong + from1
+		val until = until2 * length1.toLong + until1
 		if (from < until)
 			make(source, from2, from1, (until - from).toInt)
 		else
-			make(source, from2, from1, (outerLength * innerLength + until - from).toInt)
+			make(source, from2, from1, (length2 * length1 + until - from).toInt)
 	}
 
 }
@@ -968,24 +952,25 @@ private[sugar] trait ReverseCyclicMatrixSliceFactory[-S[_], +C[+_]]
 	extends AbstractCyclicMatrixSliceFactory[S, C]
 	   with ReverseCyclicSliceFactory[Pow[S]#_2 @uncheckedVariance, C]
 {
-	protected override def make[E](source :S[S[E]] @uncheckedVariance, from2 :Int, from1 :Int, until2 :Int, until1 :Int)
-			:C[E] =
+	protected override def make[E](length1 :Int, source :S[S[E]] @uncheckedVariance,
+	                               from2 :Int, from1 :Int, until2 :Int, until1 :Int) :C[E] =
 	{
-		val outerLength = lengthOf(source)
-		val innerLength = lengthOf(get(source, from2)).toLong
-		val from = from2 * innerLength + from1
-		val until = until2 * innerLength + until1
+		val length2 = lengthOf(source)
+		val from = from2 * length1.toLong + from1
+		val until = until2 * length1.toLong + until1
 		val size =
 			if (from < until) (until - from).toInt
-			else (outerLength * innerLength + until - from).toInt
+			else (length2 * length1 + until - from).toInt
 		if (until1 > 0)
 			make(source, until2, until1 - 1, size)
 		else if (until2 == 0)
-			make(source, outerLength - 1, (innerLength - 1).toInt, size)
+			make(source, length2 - 1, length1 - 1, size)
 		else
-			make(source, until2 - 1, (innerLength - 1).toInt, size)
+			make(source, until2 - 1, length1 - 1, size)
 	}
 }
+
+
 
 
 
@@ -1447,7 +1432,7 @@ trait AbstractCyclicCuboidSliceFactory[-S[_], +C[+_]] extends CuboidSliceFactory
 		var end2    = until2
 		var end1    = until1
 		var deltaFrom3  = if (from2 < 0 | from2 == 0 & from1 < 0) -1 else 0
-		var deltaUntil3 = if (until2 < 0 | until2 == 0 & until1 <= 0) -1 else 0
+		val deltaUntil3 = if (until2 < 0 | until2 == 0 & until1 <= 0) -1 else 0
 		if (deltaFrom3 == -1)
 			start3 = if (start3 == 0) length3 - 1 else start3 - 1
 		if (deltaUntil3 == -1)

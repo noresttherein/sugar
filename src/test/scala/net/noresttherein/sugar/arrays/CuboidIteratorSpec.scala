@@ -254,8 +254,10 @@ abstract class CyclicCuboidIteratorProps[I[+X] <: BufferedIterator[X]]
 			val end    = (end3 * length2 + end2) * length1 + end1
 			if (from == until)
 				Seq.empty
+			else if (start == until)
+				expectSlice(source, start, start + length3 * length2 * length1)
 			else
-				expectSlice(source, start, end + length3 * length2 * length1)
+				expectSlice(source, start, end)
 		}
 
 	protected override def expectApply[X](source :Array3[X], from3 :Int, from2 :Int, from1 :Int, size :Int) :Seq[X] =

@@ -108,10 +108,9 @@ abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 		override def apply[X :ClassTag :Ordering :Arbitrary](source :Array2[X]) :Prop =
 			forAll { (from2 :Int, from1 :Int, until2 :Int, until1 :Int) =>
 				val expect = expectSlice(source, from2, from1, until2, until1)
-				apply(expect, factory.slice(source, from2, from1, until2, until1)) lbl
+				guard(apply(expect, factory.slice(source, from2, from1, until2, until1))) lbl
 					s"$name.slice(${contents(source)}, $from2, $from1, $until2, $until1) == " +
-						factory.slice(source, from2, from1, until2, until1).mkString("Iterator(", ", ", ")") +
-						"\n!= " + expect
+						format(factory.slice(source, from2, from1, until2, until1)) + "\n!= " + expect
 			}
 	}
 	new IteratorProperty("slice(length, array, from, until)") {
@@ -119,9 +118,9 @@ abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 			forAll { (from :Int, until :Int) =>
 				val len  = if (source.length == 0) 0 else source(0).length
 				val expect = expectSlice(source, from, until)
-				apply(expect, factory.slice(len, source, from, until)) lbl
+				guard(apply(expect, factory.slice(len, source, from, until))) lbl
 					s"$name.slice($len, ${contents(source)}, $from, $until) == " +
-						factory.slice(len, source, from, until).mkString("Iterator(", ", ", ")") + "\n!= " + expect
+						format(factory.slice(len, source, from, until))+ "\n!= " + expect
 			}
 	}
 
@@ -129,9 +128,9 @@ abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 		override def apply[X :ClassTag :Ordering :Arbitrary](source :Array2[X]) :Prop =
 			forAll { (from2 :Int, from1 :Int, size :Int) =>
 				val expect = expectApply(source, from2, from1, size)
-				apply(expect, factory(source, from2, from1, size)) lbl
+				guard(apply(expect, factory(source, from2, from1, size))) lbl
 					s"$name(${contents(source)}, $from2, $from1, $size) == " +
-						factory(source, from2, from1, size).mkString("Iterator(", ", ", ")") + "\n!= " + expect
+						format(factory(source, from2, from1, size)) + "\n!= " + expect
 			}
 	}
 	new IteratorProperty("apply(length, array, from, size)") {
@@ -139,9 +138,9 @@ abstract class MatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 			forAll { (from :Int, size :Int) =>
 				val len  = if (source.length == 0) 0 else source(0).length
 				val expect = expectApply(source, from, size)
-				apply(expect, factory(len, source, from, size)) lbl
+				guard(apply(expect, factory(len, source, from, size))) lbl
 					s"$name($len, ${contents(source)}, $from, $size) == " +
-						factory(len, source, from, size).mkString("Iterator(", ", ", ")") + "\n!= " + expect
+						format(factory(len, source, from, size)) + "\n!= " + expect
 			}
 	}
 }
@@ -171,17 +170,33 @@ abstract class CyclicMatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 		else {
 			val length2 = source.length
 			val length1 = source(0).length
-			val adjustedFrom2  = if (from1 >= length1) from2.toLong + 1 else from2.toLong
-			val adjustedUntil2 = if (until1 >= length1) until2.toLong + 1 else until2.toLong
-			val clippedFrom1   = clip(from1, length1)// % length1
-			val clippedUntil1  = clip(until1, length1)// % length1
-			if (length1 == 0 || adjustedFrom2 == adjustedUntil2 && clippedFrom1 % length1 == clippedUntil1 % length1)
+			val adjustedFrom2  =
+				if (from1 >= length1) from2.toLong + 1
+				else if (from1 < 0) from2.toLong - 1
+				else from2.toLong
+			val adjustedUntil2 =
+				if (until1 >= length1) until2.toLong + 1
+				else if (until1 < 0) until2.toLong - 1
+				else until2.toLong
+			val adjustedFrom1  =
+				if (from1 < 0) length1 - 1
+				else if (from1 >= length1) 0
+				else from1
+			val adjustedUntil1 =
+				if (until1 < 0) length1 - 1
+				else if (until1 >= length1) 0
+				else until1
+			if (length1 == 0 || adjustedFrom2 == adjustedUntil2 && adjustedFrom1 == adjustedUntil1)
 				Seq.empty
 			else {
-				val modFrom2       = if (from2 < 0) length2 + from2 % length2 else from2 % length2
-				val modUntil2      = if (until2 < 0) length2 + until2 % length2 else until2 % length2
-				val from   = modFrom2 * length1 + clippedFrom1
-				val until  = modUntil2 * length1 + clippedUntil1
+				val modFrom2  =
+					if (adjustedFrom2 < 0) (length2 + adjustedFrom2 % length2) % length2
+					else adjustedFrom2 % length2
+				val modUntil2 =
+					if (adjustedUntil2 < 0) (length2 + adjustedUntil2 % length2) % length2
+					else adjustedUntil2 % length2
+				val from  = modFrom2.toInt * length1 + adjustedFrom1
+				val until = modUntil2.toInt * length1 + adjustedUntil1
 				if (from == until)
 					expectSlice(source, from, from + length2 * length1)
 				else
@@ -194,7 +209,7 @@ abstract class CyclicMatrixIteratorProps[I[+X] <: BufferedIterator[X]]
 		else {
 			val length1 = source(0).length
 			val length  = length1 * source.length
-			val from    = from2.toLong * length1 + math.min(length1, math.max(0, from1))
+			val from    = from2.toLong * length1 + math.min(length1, math.max(-1, from1))
 			expectApply(source, (from % length).toInt, size)
 		}
 }

@@ -3,7 +3,7 @@ package net.noresttherein.sugar
 import scala.Specializable.Everything
 import scala.annotation.unchecked.uncheckedVariance
 
-import net.noresttherein.sugar.arrays.ReverseCyclicMatrixIterator
+import net.noresttherein.sugar.arrays.ReverseMatrixIterator
 import net.noresttherein.sugar.arrays.extensions.{IArrayExtensions, IRefArrayExtensions, RefArrayExtensions}
 import net.noresttherein.sugar.collections.Mutability.{Immutable, Mutable, Unspecified}
 import net.noresttherein.sugar.collections.{ArrayLikeSliceFactory, CuboidSliceFactory, ExpandedSliceFactory, MatrixSliceFactory, ValIterator}
@@ -430,14 +430,26 @@ package object arrays extends extensions {
 	private[sugar] val MatrixIterator :MatrixSliceFactory[ArrayLike, ValIterator.Buffered] =
 		new MatrixIteratorFactory[ArrayLike]("MatrixIterator", MatrixIterator)
 
+	private[sugar] val RefMatrixIterator :MatrixSliceFactory[RefArrayLike, ValIterator.Buffered] =
+		new RefMatrixIteratorFactory[RefArrayLike]("RefMatrixIterator", RefMatrixIterator)
+
 	private[sugar] val ReverseMatrixIterator :MatrixSliceFactory[ArrayLike, ValIterator.Buffered] =
 		new ReverseMatrixIteratorFactory[ArrayLike]("ReverseMatrixIterator", ReverseMatrixIterator)
+
+	private[sugar] val ReverseRefMatrixIterator :MatrixSliceFactory[RefArrayLike, ValIterator.Buffered] =
+		new ReverseRefMatrixIteratorFactory[RefArrayLike]("ReverseRefMatrixIterator", ReverseRefMatrixIterator)
 
 	private[sugar] val CyclicMatrixIterator  :MatrixSliceFactory[ArrayLike, ValIterator.Buffered] =
 		new CyclicMatrixIteratorFactory[ArrayLike]("CyclicMatrixIterator", CyclicMatrixIterator)
 
+	private[sugar] val CyclicRefMatrixIterator  :MatrixSliceFactory[RefArrayLike, ValIterator.Buffered] =
+		new CyclicRefMatrixIteratorFactory[RefArrayLike]("CyclicRefMatrixIterator", CyclicRefMatrixIterator)
+
 	private[sugar] val ReverseCyclicMatrixIterator :MatrixSliceFactory[ArrayLike, ValIterator.Buffered] =
 		new ReverseCyclicMatrixIteratorFactory[ArrayLike]("ReverseCyclicMatrixIterator", ReverseCyclicMatrixIterator)
+
+	private[sugar] val ReverseCyclicRefMatrixIterator :MatrixSliceFactory[RefArrayLike, ValIterator.Buffered] =
+		new ReverseCyclicRefMatrixIteratorFactory[RefArrayLike]("ReverseCyclicRefMatrixIterator", ReverseCyclicRefMatrixIterator)
 
 	
 	

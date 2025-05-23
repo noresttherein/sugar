@@ -27,13 +27,13 @@ private sealed abstract class AbstractArrayLike3IteratorFactory[-A[X] <: ArrayLi
 
 
 @SerialVersionUID(Ver)
-private final class CuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                                         (name :String, self: => Slice3DFactory[A, Iterator])
+private sealed class CuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
+                                          (name :String, self: => Slice3DFactory[A, Iterator])
 	extends AbstractArrayLike3IteratorFactory[A](name, self)
 	   with CuboidSliceFactory[A, CuboidIterator]
 {
-	protected override def make[E](source :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:CuboidIterator[E] =
+	protected final override def make[E](source :A[A[A[E]]] @uncheckedVariance,
+	                                     from3 :Int, from2 :Int, from1 :Int, size :Int) :CuboidIterator[E] =
 		((source :ArrayLike[_]) match {
 			case a :Array[Array[Array[AnyRef]]]  => new CuboidIterator(a, from3, from2, from1, size)
 			case a :Array[Array[Array[Int]]]     => new CuboidIterator(a, from3, from2, from1, size)
@@ -49,7 +49,7 @@ private final class CuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
 			case a :Array[ArrayLike[Array[E]]] @unchecked => new CuboidIterator(a, from3, from2, from1, size)
 		}).castParam[E]
 
-	protected override val Empty :CuboidIterator[Nothing] = {
+	protected final override val Empty :CuboidIterator[Nothing] = {
 		//CyclicCuboidIterator assumes array(idx3)(idx2) exists.
 		val array   = new Array[Array[Array[Nothing]]](1)
 		array(0)    = new Array[Array[Nothing]](1)
@@ -60,13 +60,13 @@ private final class CuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
 
 
 @SerialVersionUID(Ver)
-private final class RefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
-                    (name :String, self: => Slice3DFactory[A, Iterator])
+private sealed class RefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
+                     (name :String, self: => Slice3DFactory[A, Iterator])
 	extends AbstractArrayLike3IteratorFactory[A](name, self)
 	   with CuboidSliceFactory[A, CuboidIterator]
 {
-	protected override def make[E](array :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:CuboidIterator[E] =
+	protected final override def make[E](array :A[A[A[E]]] @uncheckedVariance,
+	                                     from3 :Int, from2 :Int, from1 :Int, size :Int) :CuboidIterator[E] =
 		(array :ArrayLike[_]) match {
 			case refs :Array[AnyRef] =>
 				new RefCuboidIterator(refs.asInstanceOf[A[A[Array[AnyRef]]]], from3, from2, from1, size)
@@ -76,7 +76,7 @@ private final class RefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[a
 			case _ =>
 				illegal_!("Cannot create a RefCuboidIterator for non RefArray: " + errorString(array) + ".")
 		}
-	protected override val Empty :CuboidIterator[Nothing] = {
+	protected final override val Empty :CuboidIterator[Nothing] = {
 		val array   = RefArray[RefArray[Array[AnyRef]]](RefArray[Array[AnyRef]](Array.empty[AnyRef]))
 		new RefCuboidIterator(array, 0, 0, 0, 0).asInstanceOf[CuboidIterator[Nothing]]
 	}
@@ -87,70 +87,27 @@ private final class RefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[a
 
 @SerialVersionUID(Ver)
 private final class CyclicCuboidIteratorFactory[-A[X] <: ArrayLike[X]](name :String, self: => Slice3DFactory[A, Iterator])
-	extends AbstractArrayLike3IteratorFactory[A](name, self)
+	extends CuboidIteratorFactory[A](name, self)
 	   with CyclicCuboidSliceFactory[A, CuboidIterator]
-{
-	protected override def make[E](source :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:CuboidIterator[E] =
-		((source :ArrayLike[_]) match {
-			case a :Array[Array[Array[AnyRef]]]  => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Int]]]     => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Long]]]    => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Double]]]  => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Char]]]    => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Byte]]]    => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Float]]]   => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Short]]]   => new CuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Boolean]]] => new CuboidIterator(a, from3, from2, from1, size)
-			case null                     => null_!("Null array passed to CyclicCuboidIterator")
-			//Handle RefArray
-			case a :Array[ArrayLike[Array[E]]] @unchecked => new CuboidIterator(a, from3, from2, from1, size)
-		}).castParam[E]
-
-	protected override val Empty :CuboidIterator[Nothing] = {
-		//CuboidIterator assumes array(idx3)(idx2) exists.
-		val array   = new Array[Array[Array[Nothing]]](1)
-		array(0)    = new Array[Array[Nothing]](1)
-		array(0)(0) = new Array[Nothing](0)
-		new CuboidIterator[Nothing](array, 0, 0, 0, 0)
-	}
-}
 
 
 @SerialVersionUID(Ver)
 private final class CyclicRefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
                     (name :String, self: => Slice3DFactory[A, Iterator])
-	extends AbstractArrayLike3IteratorFactory[A](name, self)
+	extends RefCuboidIteratorFactory[A](name, self)
 	   with CyclicCuboidSliceFactory[A, CuboidIterator]
-{
-	protected override def make[E](array :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:CuboidIterator[E] =
-		(array :ArrayLike[_]) match {
-			case refs :Array[AnyRef] =>
-				new RefCuboidIterator(refs.asInstanceOf[A[A[Array[AnyRef]]]], from3, from2, from1, size)
-					.asInstanceOf[CuboidIterator[E]]
-			case null =>
-				null_!("Cannot create a RefCuboidIterator for a null array.")
-			case _ =>
-				illegal_!("Cannot create a RefCuboidIterator for non RefArray: " + errorString(array) + ".")
-		}
-	protected override val Empty :CuboidIterator[Nothing] = {
-		val array   = RefArray[RefArray[Array[AnyRef]]](RefArray[Array[AnyRef]](Array.empty[AnyRef]))
-		new RefCuboidIterator(array, 0, 0, 0, 0).asInstanceOf[CuboidIterator[Nothing]]
-	}
-}
 
 
 
 
 @SerialVersionUID(Ver)
-private final class ReverseCuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
-                                                (name :String, self: => Slice3DFactory[A, Iterator])
+private sealed class ReverseCuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[arrays]
+                                                 (name :String, self: => Slice3DFactory[A, Iterator])
 	extends AbstractArrayLike3IteratorFactory[A](name, self)
 	   with ReverseCuboidSliceFactory[A, ReverseCuboidIterator]
 {
-	protected override def make[E](source :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:ReverseCuboidIterator[E] =
+	protected final override def make[E](source :A[A[A[E]]] @uncheckedVariance,
+	                                     from3 :Int, from2 :Int, from1 :Int, size :Int) :ReverseCuboidIterator[E] =
 		((source :ArrayLike[_]) match {
 			case a :Array[Array[Array[AnyRef]]]  => new ReverseCuboidIterator(a, from3, from2, from1, size)
 			case a :Array[Array[Array[Int]]]     => new ReverseCuboidIterator(a, from3, from2, from1, size)
@@ -166,7 +123,7 @@ private final class ReverseCuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[
 			case a :Array[ArrayLike[Array[E]]] @unchecked => new ReverseCuboidIterator(a, from3, from2, from1, size)
 		}).castParam[E]
 
-	protected override val Empty :ReverseCuboidIterator[Nothing] = {
+	protected final override val Empty :ReverseCuboidIterator[Nothing] = {
 		//CuboidIterator assumes array(idx3)(idx2) exists.
 		val array   = new Array[Array[Array[Nothing]]](1)
 		array(0)    = new Array[Array[Nothing]](1)
@@ -177,13 +134,13 @@ private final class ReverseCuboidIteratorFactory[-A[X] <: ArrayLike[X]] private[
 
 
 @SerialVersionUID(Ver)
-private final class ReverseRefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
-                    (name :String, self: => Slice3DFactory[A, Iterator])
+private sealed class ReverseRefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
+                     (name :String, self: => Slice3DFactory[A, Iterator])
 	extends AbstractArrayLike3IteratorFactory[A](name, self)
 	   with ReverseCuboidSliceFactory[A, ReverseCuboidIterator]
 {
-	protected override def make[E](array :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:ReverseCuboidIterator[E] =
+	protected final override def make[E](array :A[A[A[E]]] @uncheckedVariance,
+	                                     from3 :Int, from2 :Int, from1 :Int, size :Int) :ReverseCuboidIterator[E] =
 		(array :ArrayLike[_]) match {
 			case refs :Array[AnyRef] =>
 				new ReverseRefCuboidIterator(refs.asInstanceOf[A[A[Array[AnyRef]]]], from3, from2, from1, size)
@@ -193,7 +150,7 @@ private final class ReverseRefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] pr
 			case _ =>
 				illegal_!("Cannot create a RefCuboidIterator for non RefArray: " + errorString(array) + ".")
 		}
-	protected override val Empty :ReverseCuboidIterator[Nothing] = {
+	protected final override val Empty :ReverseCuboidIterator[Nothing] = {
 		val array   = RefArray[RefArray[Array[AnyRef]]](RefArray[Array[AnyRef]](Array.empty[AnyRef]))
 		new ReverseRefCuboidIterator(array, 0, 0, 0, 0).asInstanceOf[ReverseCuboidIterator[Nothing]]
 	}
@@ -205,58 +162,15 @@ private final class ReverseRefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] pr
 @SerialVersionUID(Ver)
 private final class ReverseCyclicCuboidIteratorFactory[-A[X] <: ArrayLike[X]]
                                                       (name :String, self: => Slice3DFactory[A, Iterator])
-	extends AbstractArrayLike3IteratorFactory[A](name, self)
+	extends ReverseCuboidIteratorFactory[A](name, self)
 	   with ReverseCyclicCuboidSliceFactory[A, ReverseCuboidIterator]
-{
-	protected override def make[E](source :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:ReverseCuboidIterator[E] =
-		((source :ArrayLike[_]) match {
-			case a :Array[Array[Array[AnyRef]]]  => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Int]]]     => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Long]]]    => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Double]]]  => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Char]]]    => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Byte]]]    => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Float]]]   => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Short]]]   => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case a :Array[Array[Array[Boolean]]] => new ReverseCuboidIterator(a, from3, from2, from1, size)
-			case null                     => null_!("Null array passed to ReverseCuboidIterator")
-			//Handle RefArray
-			case a :Array[ArrayLike[Array[E]]] @unchecked => new ReverseCuboidIterator(a, from3, from2, from1, size)
-		}).castParam[E]
-
-	protected override val Empty :ReverseCuboidIterator[Nothing] = {
-		//CuboidIterator assumes array(idx3)(idx2) exists.
-		val array   = new Array[Array[Array[Nothing]]](1)
-		array(0)    = new Array[Array[Nothing]](1)
-		array(0)(0) = new Array[Nothing](0)
-		new ReverseCuboidIterator[Nothing](array, 0, 0, 0, 0)
-	}
-}
 
 
 @SerialVersionUID(Ver)
 private final class ReverseCyclicRefCuboidIteratorFactory[-A[X] <: RefArrayLike[X]] private[arrays]
                     (name :String, self: => Slice3DFactory[A, Iterator])
-	extends AbstractArrayLike3IteratorFactory[A](name, self)
+	extends ReverseRefCuboidIteratorFactory[A](name, self)
 	   with ReverseCyclicCuboidSliceFactory[A, ReverseCuboidIterator]
-{
-	protected override def make[E](array :A[A[A[E]]] @uncheckedVariance, from3 :Int, from2 :Int, from1 :Int, size :Int)
-			:ReverseCuboidIterator[E] =
-		(array :ArrayLike[_]) match {
-			case refs :Array[AnyRef] =>
-				new ReverseRefCuboidIterator(refs.asInstanceOf[A[A[Array[AnyRef]]]], from3, from2, from1, size)
-					.asInstanceOf[ReverseCuboidIterator[E]]
-			case null =>
-				null_!("Cannot create a RefCuboidIterator for a null array.")
-			case _ =>
-				illegal_!("Cannot create a RefCuboidIterator for non RefArray: " + errorString(array) + ".")
-		}
-	protected override val Empty :ReverseCuboidIterator[Nothing] = {
-		val array   = RefArray[RefArray[Array[AnyRef]]](RefArray[Array[AnyRef]](Array.empty[AnyRef]))
-		new ReverseRefCuboidIterator(array, 0, 0, 0, 0).asInstanceOf[ReverseCuboidIterator[Nothing]]
-	}
-}
 
 
 
