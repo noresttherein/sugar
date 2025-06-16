@@ -34,20 +34,6 @@ Test / sourceGenerators += Def.task {
 		("//\\w*override def toString", "\toverride def toString")
 	)
 
-	IO.reader(MatrixBuffer) { reader =>
-		val lines = reader.lines.toList.asScala.map { line =>
-			line.replaceAllLiterally("MatrixBuffer", "TestMatrixBuffer")
-			    .replaceAll("final val Dim1Bits = \\d*", "final val Dim1Bits = 4")
-			    .replaceAll("final val Dim2Bits = \\d*", "final val Dim2Bits = 27")
-			    .replaceAll("final val MinSize1 = \\d*", "final val MinSize1 = 4")
-			    .replaceAll("final val NewSize1 = \\d*", "final val NewSize1 = 4")
-			    .replaceAll("final val MinSize2 = \\d*", "final val MinSize2 = 4")
-			    .replaceAll("final val NewSize2 = \\d*", "final val NewSize2 = 4")
-			    .replaceAll("//\\w*override def toString", "\toverride def toString")
-		}
-		IO.writeLines(output, lines)
-	}
-
 	//Create a copy of TreeSeq sequence using a much lower tree rank/order, so that relatively small sequences
 	// are represented by deep trees, in order to comfortably test the implementations for higher levels.
 	val TreeSeq     = collectionsSourceDir / "TreeSeq.scala"
