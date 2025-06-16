@@ -5,6 +5,7 @@ import scala.collection.{AbstractIterator, BufferedIterator}
 
 import net.noresttherein.sugar.arrays.ArrayCompanionExtension
 import net.noresttherein.sugar.collections.Constants.MaxArraySize
+import net.noresttherein.sugar.collections.extensions.IteratorExtension
 import net.noresttherein.sugar.exceptions.noSuch_!
 import net.noresttherein.sugar.reflect.extensions.classNameMethods
 

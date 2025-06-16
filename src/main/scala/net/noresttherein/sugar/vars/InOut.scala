@@ -945,6 +945,32 @@ abstract class AbstractInOut[E] extends InOut[E] {
 
 
 
+abstract class OptionalInOut[E] extends InOut[E] {
+	override def isFinal = false
+	override def isFinalizable = false
+	override def isConst = false
+
+	override def isDefined :Boolean = isDefinite
+
+	override def value    :E = maybe match {
+		case Yes(res) => res
+		case _        => noSuch_!(toString + ".value")
+	}
+	override def get      :E = value
+	override def const    :Nothing = unsupported_!(toString + ".const")
+	override def toOpt    :Opt[E] = opt
+	override def constOpt :Opt[E] = None
+	override def constOption :Option[E] = None
+
+	override def toString :String = maybe match {
+		case Yes(value) => String.valueOf(value)
+		case _          => this.localClassName + "()"
+	}
+}
+
+
+
+
 
 @SerialVersionUID(Ver)
 private[sugar] class IndexedSeqLens[E](seq :mutable.IndexedSeqOps[E, Any1, _], idx :Int)

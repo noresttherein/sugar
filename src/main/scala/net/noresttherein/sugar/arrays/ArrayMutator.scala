@@ -3,7 +3,7 @@ package net.noresttherein.sugar.arrays
 import scala.collection.AbstractIterator
 
 import net.noresttherein.sugar.collections.Mutability.Mutable
-import net.noresttherein.sugar.collections.{ArrayLikeSliceWrapper, ExpandedSliceFactory, Mutator, ValIterator}
+import net.noresttherein.sugar.collections.{ArrayLikeSliceWrapper, ExpandedSliceFactory, Mutator, ValIterator, ValMutator}
 import net.noresttherein.sugar.exceptions.{illegalState_!, noSuch_!, unsupported_!}
 import net.noresttherein.sugar.reflect.Specialized.MultiValue
 import net.noresttherein.sugar.vars.{ArrayLens, InOut}
@@ -32,7 +32,7 @@ private[sugar] sealed class ArrayMutator[@specialized(MultiValue) T] private[sug
 	final override def limit :Int = `last++`
 	protected final override def limit_=(i :Int) :Unit = `last++` = i
 
-	override def lens :InOut[T] = new ArrayLens(array, first)
+	override def access :InOut[T] = new ArrayLens(array, first)
 //	def reverse :ReverseArrayIterator[T] = new ReverseArrayIterator[T](array, first, `last++`)
 
 	final override def hasNext :Boolean = first < `last++`
